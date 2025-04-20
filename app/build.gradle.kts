@@ -41,6 +41,13 @@ android {
 
 dependencies {
 
+    implementation (libs.retrofit)              //Retrofit
+    implementation (libs.converter.gson)        //Gson Converter
+    implementation(libs.logging.interceptor)    //An OkHttp interceptor which logs HTTP request and response data.
+    //View Model and Lifecycle
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
