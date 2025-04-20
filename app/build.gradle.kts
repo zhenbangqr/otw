@@ -46,6 +46,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.material.iconsExtended)
     implementation(libs.androidx.security.crypto)
     implementation(libs.openid.appauth)

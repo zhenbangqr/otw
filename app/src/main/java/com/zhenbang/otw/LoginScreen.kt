@@ -33,8 +33,9 @@ import kotlinx.coroutines.flow.collectLatest // Import for collectLatest
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
-    authViewModel: AuthViewModel = viewModel()
-) {
+    authViewModel: AuthViewModel = viewModel(),
+    onNavigateToRegister: () -> Unit //
+)  {
     val googleAuthState by remember { derivedStateOf { authViewModel.userAuthState } }
 
     var email by rememberSaveable { mutableStateOf("") }
@@ -177,8 +178,8 @@ fun LoginScreen(
                 // Register Account Text (Clickable)
                 TextButton(
                     onClick = {
-                        // TODO: Implement navigation to Registration Screen
                         println("Register Account Clicked!")
+                        onNavigateToRegister()
                     },
                     modifier = Modifier.align(Alignment.CenterHorizontally)
                 ) {
