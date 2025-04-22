@@ -16,12 +16,10 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import android.content.Context
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import org.json.JSONException
 
-// Data class to hold the state of user authentication.
 data class UserAuthState(
     val isAuthorized: Boolean = false,
     val accessToken: String? = null,
@@ -92,20 +90,15 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     // Your Client ID from Google Cloud Console
     private val clientId = "980567999909-hpcb46hv5dfvvh3gk1g34u1s2hli1har.apps.googleusercontent.com"
 
-    // Your redirect URI (using correct :/ format and matching scheme)
     private val redirectUri = Uri.parse("com.zhenbang.otw:/oauth2redirect")
 
-    // Standard Google OAuth scopes
     private val scope = "openid profile email"
 
-    // Google's OAuth 2.0 endpoints
     private val serviceConfig = AuthorizationServiceConfiguration(
-        Uri.parse("https://accounts.google.com/o/oauth2/v2/auth"), // Google Auth Endpoint
-        Uri.parse("https://oauth2.googleapis.com/token")          // Google Token Endpoint
+        Uri.parse("https://accounts.google.com/o/oauth2/v2/auth"),
+        Uri.parse("https://oauth2.googleapis.com/token")
     )
-    // --- End Configuration Section ---
 
-    // Builds the authorization request
     fun buildAuthorizationRequest(): AuthorizationRequest {
         val builder = AuthorizationRequest.Builder(
             serviceConfig,
@@ -113,19 +106,16 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             ResponseTypeValues.CODE,
             redirectUri
         )
-        // AppAuth handles PKCE automatically (S256)
         return builder
             .setScope(scope)
             .build()
     }
 
-    // Prepares the intent to launch the Custom Tab
     fun prepareAuthIntent(authRequest: AuthorizationRequest): Intent {
         val customTabsIntent = CustomTabsIntent.Builder().build()
         return authService.getAuthorizationRequestIntent(authRequest, customTabsIntent)
     }
 
-    // Handles the response from the Custom Tab
     fun handleAuthorizationResponse(intent: Intent) {
         val resp = AuthorizationResponse.fromIntent(intent)
         val ex = AuthorizationException.fromIntent(intent)
@@ -134,14 +124,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
         when {
             resp != null -> {
-                // Authorization successful, code received
                 userAuthState = userAuthState.copy(
                     isAuthorized = false, error = null, needsTokenExchange = true, authCode = resp.authorizationCode
                 )
-                exchangeCodeForToken(resp) // Trigger token exchange
+                exchangeCodeForToken(resp)
             }
             ex != null -> {
-                // Authorization failed
                 userAuthState = userAuthState.copy(
                     isAuthorized = false, error = "Authorization Failed: ${ex.errorDescription ?: ex.error ?: "Unknown error"} [Code: ${ex.code}]", needsTokenExchange = false
                 )
@@ -153,17 +141,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Example function to perform action with fresh tokens (handles refresh)
     fun performActionWithFreshTokens(action: (accessToken: String?, idToken: String?, ex: AuthorizationException?) -> Unit) {
         val currentState = authState
-
 
         // Perform action, potentially refreshing tokens
         currentState.performActionWithFreshTokens(authService) { accessToken, idToken, ex ->
             viewModelScope.launch {
-                // Get latest persisted state AFTER action to see if refresh happened
-                val latestPersistedAuthState = restoreAuthState() ?: AuthState()
-
                 if (ex != null) {
                     // Refresh failed
                     println("Token refresh failed: ${ex.message}")

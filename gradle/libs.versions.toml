@@ -13,8 +13,10 @@ androidxBrowser = "1.8.0"
 androidxLifecycle = "2.7.0"
 androidxSecurityCrypto = "1.1.0-alpha06"
 androidxNavigationCompose = "2.7.7"
+kotlinxCoroutines = "1.7.3"
 
 [libraries]
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "androidxNavigationCompose" }
 androidx-material-iconsExtended = { group = "androidx.compose.material", name = "material-icons-extended" }
 androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "androidxSecurityCrypto" }

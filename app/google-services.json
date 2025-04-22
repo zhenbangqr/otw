@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "472466047132",
+    "project_id": "on-the-way-e5172",
+    "storage_bucket": "on-the-way-e5172.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:472466047132:android:b3ccef65e8a6c9c7f66d59",
+        "android_client_info": {
+          "package_name": "com.zhenbang.otw"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDLxVnf_0EPrilNcCdmA4NbWIqGHnz05_A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
