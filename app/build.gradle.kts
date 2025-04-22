@@ -17,6 +17,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["appAuthRedirectScheme"] = "com.zhenbang.otw"
     }
 
     buildTypes {
@@ -38,10 +39,20 @@ android {
     buildFeatures {
         compose = true
     }
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
 }
 
 dependencies {
-
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.material.iconsExtended)
+    implementation(libs.androidx.security.crypto)
+    implementation(libs.openid.appauth)
+    implementation(libs.androidx.browser)
+    implementation(libs.androidx.lifecycle.viewmodelCompose)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -70,4 +81,5 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-common:2.6.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.0")
     implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("androidx.navigation:navigation-compose:2.7.7")
 }

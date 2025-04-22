@@ -4,6 +4,7 @@ package com.zhenbang.otw // Your main package or ui package
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+// import android.location.Location // Was unused, removed
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -14,10 +15,12 @@ import androidx.compose.foundation.lazy.items
 // --- Add Material 3 Icon & FAB imports ---
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.MailOutline // Correct icon import used below
 import androidx.compose.material3.Button
 import androidx.compose.material3.Divider
 import androidx.compose.material3.FloatingActionButton // Import FAB
 import androidx.compose.material3.Icon // Import Icon
+import androidx.compose.material3.IconButton // Import IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -30,6 +33,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController // Use NavController
+// import androidx.navigation.NavHostController // Remove duplicate import
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
@@ -47,46 +52,35 @@ data class LocationData(val latitude: Double = 0.0, val longitude: Double = 0.0)
 
 @Composable
 fun LiveLocationScreen(
+    navController: NavController, // <-- Correct: Use NavController once
     liveLocationViewModel: LiveLocationViewModel = viewModel()
+    // Remove duplicate navController: NavHostController parameter
 ) {
     val context = LocalContext.current
     var hasLocationPermission by rememberSaveable { mutableStateOf(checkLocationPermissions(context)) }
     val scope = rememberCoroutineScope()
-
-    // --- NEW State: Track if camera should follow current user ---
     val followCurrentUser = rememberSaveable { mutableStateOf(true) }
-    // --- END NEW State ---
 
     val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        // ... (permission handling logic remains the same) ...
-        val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
-        val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
-        hasLocationPermission = fineLocationGranted || coarseLocationGranted
+        contract = ActivityResultContracts.RequestMultiplePermissions() // <-- Add this contract
+    ) { permissions: Map<String, Boolean> -> // <-- Specify type Map<String, Boolean>
+        // Use the map to check results
+        val fine = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+        val coarse = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+        hasLocationPermission = fine || coarse // Logic remains the same
 
+        // Rest of the logic...
         if (hasLocationPermission) {
             Log.d("LiveLocationScreen", "Permissions granted after request.")
             liveLocationViewModel.startLocationTracking()
         } else {
-            Log.w("LiveLocationScreen", "Permissions denied after request.")
+            Log.w("LiveLocationScreen", "Permissions denied.")
         }
     }
 
     LaunchedEffect(key1 = hasLocationPermission) {
-        // ... (permission request logic remains the same) ...
-        if (!hasLocationPermission) {
-            Log.d("LiveLocationScreen", "Requesting location permissions...")
-            permissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                )
-            )
-        } else {
-            Log.d("LiveLocationScreen", "Permissions are granted. Starting location tracking if needed.")
-            liveLocationViewModel.startLocationTracking()
-        }
+        if (!hasLocationPermission) { permissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) }
+        else { liveLocationViewModel.startLocationTracking() }
     }
 
     val userLocations by liveLocationViewModel.userLocations.collectAsStateWithLifecycle()
@@ -94,144 +88,85 @@ fun LiveLocationScreen(
     val userNames by liveLocationViewModel.userNames.collectAsStateWithLifecycle()
 
     val defaultCameraLocation = LatLng(3.1390, 101.6869)
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(defaultCameraLocation, 12f)
-    }
+    val cameraPositionState = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(defaultCameraLocation, 12f) }
 
     val mapProperties by remember { mutableStateOf(MapProperties(isMyLocationEnabled = false)) }
-    // Disable built-in location button if we add our own FAB
     val mapUiSettings by remember { mutableStateOf(MapUiSettings(zoomControlsEnabled = true, myLocationButtonEnabled = false)) }
 
-
-    // --- MODIFIED: Effect to center camera conditionally ---
+    // Effect to center camera conditionally
     LaunchedEffect(key1 = userLocations, key2 = currentUserId, key3 = followCurrentUser.value) {
-        // Only auto-center if the flag is true
         if (followCurrentUser.value) {
-            currentUserId?.let { uid ->
-                userLocations[uid]?.let { currentUserLocation ->
-                    val currentMapTarget = cameraPositionState.position.target
-                    // Only animate if significantly far or at default
-                    if (currentMapTarget == defaultCameraLocation || distanceBetween(currentMapTarget, currentUserLocation.toLatLng()) > 10000) {
-                        Log.d("LiveLocationScreen", "Auto-centering camera because followCurrentUser is true.")
-                        scope.launch {
-                            cameraPositionState.animate(
-                                update = CameraUpdateFactory.newLatLngZoom(currentUserLocation.toLatLng(), 15f),
-                                durationMs = 1000
-                            )
-                        }
-                    }
-                    // Optional: If followCurrentUser is true, you might want smoother following
-                    // for smaller movements too, adjust conditions as needed.
+            currentUserId?.let { uid -> userLocations[uid]?.let { loc ->
+                val target = cameraPositionState.position.target
+                if (target == defaultCameraLocation || distanceBetween(target, loc.toLatLng()) > 10000) {
+                    Log.d("LiveLocationScreen", "Auto-centering camera.")
+                    scope.launch { cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(loc.toLatLng(), 15f), 1000) }
                 }
             }
-        } else {
-            Log.d("LiveLocationScreen", "Not auto-centering because followCurrentUser is false.")
-        }
+            }
+        } else { Log.d("LiveLocationScreen", "Not auto-centering.") }
     }
-    // --- END MODIFIED Effect ---
-
 
     Scaffold { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            // --- MODIFIED: Map container Box to include FAB ---
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-            ) {
-                // Google Map Composable (remains the same)
+        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            // Map container Box with FAB
+            Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
                 if (hasLocationPermission) {
-                    GoogleMap(
+                    GoogleMap( /* ... map properties ... */
                         modifier = Modifier.fillMaxSize(),
                         cameraPositionState = cameraPositionState,
                         properties = mapProperties,
-                        uiSettings = mapUiSettings, // Use updated settings
+                        uiSettings = mapUiSettings,
                         onMapLoaded = { Log.d("LiveLocationScreen", "Map loaded.") },
-                        // Clear follow flag if user manually moves map? (Optional)
-                        // onMapMoved = { if (it.isGesture) followCurrentUser.value = false }
-                        onMapClick = { latLng ->
-                            Log.d("LiveLocationScreen", "Map clicked at: $latLng")
-                            // Optional: Clicking map could also disable following
-                            // followCurrentUser.value = false
-                        }
+                        onMapClick = { /* followCurrentUser.value = false */ } // Optional
                     ) {
-                        // Draw markers (remains the same)
+                        // Draw markers
                         userLocations.forEach { (userId, userLocation) ->
                             val isCurrentUser = userId == currentUserId
-                            val markerTitle = userNames[userId] ?: if (isCurrentUser) "You" else "User ${userId.take(6)}..."
-                            val snippetText = try { "Lat: ${String.format(Locale.US, "%.4f", userLocation.latitude)}, Lng: ${String.format(Locale.US, "%.4f", userLocation.longitude)}" } catch (e: Exception) { "Location data error" }
-                            Marker( /* ... Marker parameters ... */
+                            val name = userNames[userId]
+                            val markerTitle = name ?: if (isCurrentUser) "You" else "User ${userId.take(6)}..."
+                            val snippet = try { "Lat: ${"%.4f".format(userLocation.latitude)}, Lng: ${"%.4f".format(userLocation.longitude)}" } catch (e: Exception) { "N/A" }
+                            Marker(
                                 state = MarkerState(position = userLocation.toLatLng()),
                                 title = markerTitle,
-                                snippet = snippetText,
-                                icon = BitmapDescriptorFactory.defaultMarker( if (isCurrentUser) BitmapDescriptorFactory.HUE_AZURE else BitmapDescriptorFactory.HUE_RED )
+                                snippet = snippet,
+                                icon = BitmapDescriptorFactory.defaultMarker(if (isCurrentUser) BitmapDescriptorFactory.HUE_AZURE else BitmapDescriptorFactory.HUE_RED)
                             )
                         }
                     }
-                } else {
-                    // Permission denial UI (remains the same)
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { /* ... Button ... */
-                        Button(onClick = {
-                            permissionLauncher.launch( arrayOf( Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION ) )
-                        }) { Text("Grant Location Permission") }
+                } else { // Permission denial UI
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Button(onClick = { permissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) }) { Text("Grant Location Permission") }
                     }
                 }
 
-                // --- NEW: Reposition Floating Action Button ---
+                // Reposition FAB
                 if (hasLocationPermission) {
                     FloatingActionButton(
                         onClick = {
                             Log.d("LiveLocationScreen", "Reposition button clicked.")
-                            // 1. Get current user's latest location
-                            val latestCurrentUserLocation = currentUserId?.let { userLocations[it] }
-
-                            if (latestCurrentUserLocation != null) {
-                                // 2. Animate camera to it
+                            currentUserId?.let { uid -> userLocations[uid]?.let { loc ->
                                 scope.launch {
-                                    cameraPositionState.animate(
-                                        update = CameraUpdateFactory.newLatLngZoom(latestCurrentUserLocation.toLatLng(), 15f),
-                                        durationMs = 1000
-                                    )
-                                    // 3. Set flag to true AFTER animation starts/finishes
+                                    cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(loc.toLatLng(), 15f), 1000)
                                     followCurrentUser.value = true
-                                    Log.d("LiveLocationScreen", "Camera repositioned, followCurrentUser set to true.")
+                                    Log.d("LiveLocationScreen", "Repositioned. Follow set to true.")
                                 }
-                            } else {
-                                Log.w("LiveLocationScreen", "Could not reposition, current user location unavailable.")
-                                // Optionally show a Toast message to the user
-                            }
+                            } } ?: Log.w("LiveLocationScreen", "Cannot reposition, current location unknown.")
                         },
-                        modifier = Modifier
-                            .align(Alignment.BottomStart) // Position FAB
-                            .padding(start = 16.dp, bottom = 32.dp), // Increased bottom padding
-                        containerColor = MaterialTheme.colorScheme.primary // Use theme colors
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Home,
-                            contentDescription = "Re-center on my location"
-                        )
-                    }
+                        modifier = Modifier.align(Alignment.BottomStart).padding(start = 16.dp, bottom = 32.dp),
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ) { Icon(Icons.Default.Home, "Re-center") }
                 }
-                // --- END NEW FAB ---
+            } // End Map Box
 
-            } // End of Map container Box
-
-            // --- User List Section ---
+            // User List Section
             if (hasLocationPermission && userLocations.size > 1) {
                 val currentUserLocation = remember(currentUserId, userLocations) { currentUserId?.let { userLocations[it] } }
                 val otherUsers = remember(userLocations, currentUserId) { userLocations.filterKeys { it != currentUserId } }
 
                 if (otherUsers.isNotEmpty() && currentUserLocation != null) {
-                    Text( /* ... Title ... */
-                        text = "Other Users Online:", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                    )
-                    LazyColumn( /* ... Modifiers ... */
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp).padding(bottom = 8.dp)
-                    ) {
+                    Text("Other Users Online:", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                    LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp).padding(bottom = 8.dp)) {
                         items(otherUsers.toList(), key = { (userId, _) -> userId }) { (userId, otherUserLocation) ->
                             val userName = userNames[userId] ?: "User ${userId.take(6)}..."
                             val distanceMeters = distanceBetween(currentUserLocation.toLatLng(), otherUserLocation.toLatLng())
@@ -240,62 +175,79 @@ fun LiveLocationScreen(
                             UserListItem(
                                 name = userName,
                                 distanceText = distanceText,
-                                onClick = { // --- MODIFIED onClick ---
-                                    Log.d("LiveLocationScreen", "User list item clicked: $userId. Animating and disabling follow.")
-                                    // 1. Stop following current user
+                                onClick = { // Center map on text click
+                                    Log.d("LiveLocationScreen", "Centering map on $userId")
                                     followCurrentUser.value = false
-                                    // 2. Animate to the clicked user
-                                    scope.launch {
-                                        cameraPositionState.animate(
-                                            update = CameraUpdateFactory.newLatLngZoom(otherUserLocation.toLatLng(), 15f),
-                                            durationMs = 1000
-                                        )
-                                    }
-                                    // --- END MODIFIED onClick ---
+                                    scope.launch { cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(otherUserLocation.toLatLng(), 15f), 1000) }
+                                },
+                                // --- CORRECTED: Implement onChatClick ---
+                                onChatClick = {
+                                    Log.d("LiveLocationScreen", "Chat button clicked for user: $userId")
+                                    navController.navigate(Routes.messagingWithUser(userId)) // Use route helper
                                 }
+                                // --- END CORRECTION ---
                             )
                             Divider(modifier = Modifier.padding(horizontal = 16.dp))
                         }
                     }
                 } else if (otherUsers.isNotEmpty() && currentUserLocation == null) {
-                    Text( /* ... Calculating text ... */
-                        text = "Calculating distances...", modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodySmall
-                    )
+                    Text("Calculating distances...", modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodySmall)
                 }
-            } // End of User List Section
-        } // End of main Column
-    } // End of Scaffold
+            } // End User List Section
+        } // End main Column
+    } // End Scaffold
 }
 
-// UserListItem composable (remains the same)
+// UserListItem composable (using MailOutline as per your last code)
 @Composable
-fun UserListItem(name: String, distanceText: String?, onClick: () -> Unit) { /* ... Implementation ... */
-    Row( modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text( text = name, style = MaterialTheme.typography.bodyLarge )
-            if (distanceText != null) { Text( text = "Distance: $distanceText", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant ) }
+fun UserListItem(
+    name: String,
+    distanceText: String?,
+    onClick: () -> Unit,
+    onChatClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp, horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(
+            modifier = Modifier.weight(1f).clickable(onClick = onClick).padding(end = 8.dp)
+        ) {
+            Text(text = name, style = MaterialTheme.typography.bodyLarge)
+            if (distanceText != null) {
+                Text(text = "Distance: $distanceText", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        IconButton(onClick = onChatClick) {
+            Icon(
+                imageVector = Icons.Filled.MailOutline, // Using MailOutline
+                contentDescription = "Chat with $name",
+                tint = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }
 
-// checkLocationPermissions function (remains the same)
-private fun checkLocationPermissions(context: Context): Boolean { /* ... Implementation ... */
-    val fine = ContextCompat.checkSelfPermission( context, Manifest.permission.ACCESS_FINE_LOCATION ) == PackageManager.PERMISSION_GRANTED
-    val coarse = ContextCompat.checkSelfPermission( context, Manifest.permission.ACCESS_COARSE_LOCATION ) == PackageManager.PERMISSION_GRANTED
+// checkLocationPermissions function
+private fun checkLocationPermissions(context: Context): Boolean {
+    val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
     Log.d("PermissionsCheck", "Fine: $fine, Coarse: $coarse")
     return fine || coarse
 }
 
-// distanceBetween function (remains the same)
-private fun distanceBetween(p1: LatLng, p2: LatLng): Float { /* ... Implementation ... */
+// distanceBetween function
+private fun distanceBetween(p1: LatLng, p2: LatLng): Float {
     val results = FloatArray(1)
-    try { android.location.Location.distanceBetween(p1.latitude, p1.longitude, p2.latitude, p2.longitude, results) }
-    catch (e: Exception) { Log.e("DistanceCalc", "Error calculating distance", e); return Float.MAX_VALUE }
+    try {
+        android.location.Location.distanceBetween(p1.latitude, p1.longitude, p2.latitude, p2.longitude, results)
+    } catch (e: Exception) { Log.e("DistanceCalc", "Error calculating distance", e); return Float.MAX_VALUE }
     return results[0]
 }
 
-// formatDistance function (remains the same)
-private fun formatDistance(meters: Float): String { /* ... Implementation ... */
+// formatDistance function
+private fun formatDistance(meters: Float): String {
     if (meters == Float.MAX_VALUE) return "N/A"
-    return if (meters < 1000) { "${meters.toInt()} m" } else { String.format(Locale.US, "%.1f km", meters / 1000f) }
+    return if (meters < 1000) { "${meters.toInt()} m" }
+    else { String.format(Locale.US, "%.1f km", meters / 1000f) }
 }
