@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "257673197744",
+    "firebase_url": "https://otw-abc123-default-rtdb.firebaseio.com",
+    "project_id": "otw-abc123",
+    "storage_bucket": "otw-abc123.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:257673197744:android:8b70328a9633b15da46375",
+        "android_client_info": {
+          "package_name": "com.zhenbang.otw"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB1J6IbaB2i9bvyoGB_VdhrE-2bopffKTE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
