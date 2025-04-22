@@ -1,4 +1,4 @@
-package com.zhenbang.otw.zpapi
+package com.zhenbang.otw.zpApi
 
 import android.util.Log
 import androidx.compose.foundation.layout.Box
@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -21,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 
@@ -44,7 +46,7 @@ fun ScreenZPAPI(
             .padding(16.dp), // Add padding around the column content
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Ask the BigModel API", style = MaterialTheme.typography.headlineSmall)
+        Text("Ask 智谱AI", style = MaterialTheme.typography.headlineSmall)
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -54,7 +56,8 @@ fun ScreenZPAPI(
             onValueChange = { inputText = it },
             label = { Text("Enter your question") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = false // Allow multiple lines if needed
+            singleLine = false, // Allow multiple lines if needed
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -66,6 +69,7 @@ fun ScreenZPAPI(
                 if (inputText.isNotBlank()) {
                     viewModelZPAPI.fetchDataFromApi(inputText)
                 }
+                inputText = "" // Clear input after sending
             },
             // Disable button if loading or input is empty
             enabled = !isLoading && inputText.isNotBlank(),
@@ -93,11 +97,11 @@ fun ScreenZPAPI(
                 }
                 is UiState.Loading -> {
                     // Consider simplifying this branch (see below)
-                    if (isLoading) CircularProgressIndicator() // Show indicator when loading
+                    CircularProgressIndicator() // Show indicator when loading
                 }
                 is UiState.Success -> {
                     // Access the message content via the choices list
-                    // Assuming you always want the first choice's message
+                    // Assuming always want the first choice's message
                     val responseContent = state.data.choices.firstOrNull()?.message?.content
                     Text(responseContent ?: "No text content received.") // Display it
                     // Add a log here too for debugging if needed

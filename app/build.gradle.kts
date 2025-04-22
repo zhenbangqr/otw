@@ -45,8 +45,10 @@ dependencies {
     implementation (libs.converter.gson)        //Gson Converter
     implementation(libs.logging.interceptor)    //An OkHttp interceptor which logs HTTP request and response data.
     //View Model and Lifecycle
+    implementation(libs.androidx.lifecycle.runtime.ktx.v280)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.coil.compose)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -56,6 +58,8 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.benchmark.common)
+    implementation(libs.volley)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

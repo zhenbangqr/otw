@@ -1,4 +1,4 @@
-package com.zhenbang.otw.zpapi
+package com.zhenbang.otw.zpApi
 
 import retrofit2.http.Body
 import retrofit2.http.POST

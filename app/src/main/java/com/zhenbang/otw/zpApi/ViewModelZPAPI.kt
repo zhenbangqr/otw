@@ -1,4 +1,4 @@
-package com.zhenbang.otw.zpapi
+package com.zhenbang.otw.zpApi
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -9,10 +9,9 @@ import retrofit2.HttpException
 import java.io.IOException
 import android.util.Log // Import Log for logging
 
-// --- Define your UI State (You might have this in another file) ---
-// If you don't have this defined elsewhere, add it here or in its own file.
+// --- Define UI State  ---
 sealed interface UiState<out T> {
-    data object Idle : UiState<Nothing> // <-- ADD THIS STATE
+    data object Idle : UiState<Nothing>
     data class Success<T>(val data: T) : UiState<T>
     data class Error(val message: String) : UiState<Nothing>
     data object Loading : UiState<Nothing>
@@ -25,7 +24,7 @@ class ViewModelZPAPI : ViewModel() { // Your class must inherit from ViewModel
     // Use StateFlow to hold the state that the UI will observe.
     // Initialize it with a default state (e.g., Loading or an initial empty state).
     private val _apiDataState =
-        MutableStateFlow<UiState<ResponseZPAPI>>(UiState.Idle) // <-- CHANGE INITIAL STATE HERE
+        MutableStateFlow<UiState<ResponseZPAPI>>(UiState.Idle) // <-- INITIAL STATE
     val apiDataState: StateFlow<UiState<ResponseZPAPI>> = _apiDataState
 
     // --- 2. Function to Trigger the API Call ---
@@ -50,21 +49,21 @@ class ViewModelZPAPI : ViewModel() { // Your class must inherit from ViewModel
 
                 // Update state to Success with the received data
                 _apiDataState.value = UiState.Success(response)
-                Log.d("MainViewModel", "API Call Success: ${response.id}") // Example logging
+                Log.d("ViewModelZPAPI", "API Call Success: ${response.id}") // Example logging
 
             } catch (e: IOException) { // Handle network errors
-                Log.e("MainViewModel", "Network error: ${e.message}", e)
+                Log.e("ViewModelZPAPI", "Network error: ${e.message}", e)
                 // Update state to Error with a specific message
                 _apiDataState.value = UiState.Error("Network error: Could not connect to server.")
 
             } catch (e: HttpException) { // Handle HTTP errors (like 404, 500)
-                Log.e("MainViewModel", "HTTP error ${e.code()}: ${e.message()}", e)
+                Log.e("ViewModelZPAPI", "HTTP error ${e.code()}: ${e.message()}", e)
                 // Update state to Error with details
                 _apiDataState.value =
                     UiState.Error("API error ${e.code()}: Check request or server.")
 
             } catch (e: Exception) { // Handle any other unexpected errors
-                Log.e("MainViewModel", "Unexpected error: ${e.message}", e)
+                Log.e("ViewModelZPAPI", "Unexpected error: ${e.message}", e)
                 // Update state to Error with a generic message
                 _apiDataState.value = UiState.Error("An unexpected error occurred.")
             }

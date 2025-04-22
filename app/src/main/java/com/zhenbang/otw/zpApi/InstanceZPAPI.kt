@@ -1,4 +1,4 @@
-package com.zhenbang.otw.zpapi
+package com.zhenbang.otw.zpApi
 
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
