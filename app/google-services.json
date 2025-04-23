@@ -12,7 +12,16 @@
           "package_name": "com.zhenbang.otw"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "472466047132-0sa7cqoh4gdq2eq7lhvpl1g93553ihuv.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.zhenbang.otw",
+            "certificate_hash": "d347747bf6b7a96e6680143a37904577580173f9"
+          }
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDLxVnf_0EPrilNcCdmA4NbWIqGHnz05_A"

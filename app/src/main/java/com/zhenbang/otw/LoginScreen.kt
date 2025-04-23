@@ -2,6 +2,7 @@ package com.zhenbang.otw // Adjust package if needed
 
 import android.app.Activity
 import android.content.Intent
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -14,56 +15,77 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.zhenbang.otw.auth.AuthViewModel // Adjust import if needed
-import kotlinx.coroutines.flow.collectLatest // Import for collectLatest
+import com.zhenbang.otw.auth.AuthViewModel
+import com.zhenbang.otw.auth.LoginViewModel
+import com.zhenbang.otw.auth.LoginUiState
+import com.zhenbang.otw.auth.UserAuthState
+import kotlinx.coroutines.flow.collectLatest
+
 
 /**
  * Composable function for the Login Screen UI.
  * Provides options for email/password login and Google OAuth login.
- * Observes the authentication state from AuthViewModel for Google login status.
- *
- * @param authViewModel The ViewModel instance managing the Google authentication logic.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
+    // Inject both ViewModels
     authViewModel: AuthViewModel = viewModel(),
-    onNavigateToRegister: () -> Unit //
-)  {
-    val googleAuthState by remember { derivedStateOf { authViewModel.userAuthState } }
+    loginViewModel: LoginViewModel = viewModel(),
+    onNavigateToRegister: () -> Unit,
+    onLoginSuccess: () -> Unit, // Navigate to main app after ANY successful login
+    onNavigateToVerify: (email: String) -> Unit // Navigate to verification screen if needed
+) {
+    // --- State from ViewModels ---
+    val googleAuthState by authViewModel.userAuthState.collectAsStateWithLifecycle()
+    val loginState by loginViewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
+    // --- Input State ---
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
 
-    // --- ActivityResult Launchers ---
+    // --- Derived State ---
+    val isLoading = googleAuthState.isLoading || // Use isLoading from UserAuthState
+            loginState is LoginUiState.Loading    // Email/Password login in progress
+
+    // --- ActivityResult Launchers (Mostly for AppAuth) ---
     val authLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            result.data?.let { intent -> authViewModel.handleAuthorizationResponse(intent) }
-                ?: authViewModel.handleAuthorizationResponse(Intent()) // Handle null data case
-        } else {
-            authViewModel.handleAuthorizationResponse(result.data ?: Intent()) // Handle cancellation/failure
+        result.data?.let { intent ->
+            authViewModel.handleAuthorizationResponse(intent)
+        } ?: run {
+            // Handle cancellation or error where data is null
+            if (result.resultCode != Activity.RESULT_OK) {
+                Toast.makeText(context, "Google Sign-In cancelled or failed.", Toast.LENGTH_SHORT).show()
+                // You might want to reset any specific Google loading state here if needed
+            }
+            // Pass empty intent if needed by viewmodel logic, or handle error directly
+            authViewModel.handleAuthorizationResponse(Intent()) // Or add specific error handling
         }
-        println("Google Auth completed with result code: ${result.resultCode}")
+        println("Google Auth Activity completed with result code: ${result.resultCode}")
     }
 
-    // Launcher for the Google End Session Intent (from logout)
     val endSessionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         println("Google End session flow completed with result code: ${result.resultCode}")
+        // After Google logout completes, ensure local state is also cleared (ViewModel should handle this)
     }
 
     // --- Effects ---
-    // Listen for Google End Session events from ViewModel
+
+    // Listen for Google End Session events
     LaunchedEffect(key1 = Unit) {
         authViewModel.endSessionEvent.collectLatest { intent ->
             println("LoginScreen: Received end session event, launching intent.")
@@ -71,81 +93,114 @@ fun LoginScreen(
                 endSessionLauncher.launch(intent)
             } catch (e: Exception) {
                 println("Error launching end session intent: ${e.message}")
+                // Show error to user?
             }
         }
     }
 
+    // React to Google Auth State changes
+    LaunchedEffect(googleAuthState) {
+        if (googleAuthState.isAuthorized && googleAuthState.idToken != null) {
+            println("Google Sign-In successful via AppAuth!")
+            // TODO: Optional: Trigger Firebase Linking here if desired
+            // authViewModel.linkFirebaseAccount(googleAuthState.idToken) // Need to implement this in AuthViewModel
+            Toast.makeText(context, "Google Sign-In Success!", Toast.LENGTH_SHORT).show()
+            onLoginSuccess() // Navigate to main app
+        }
+        // Error handled via generalError display now
+    }
+
+    // React to Email/Password Login State changes
+    LaunchedEffect(loginState) {
+        when (val state = loginState) {
+            is LoginUiState.LoginSuccess -> {
+                Toast.makeText(context, "Login Successful!", Toast.LENGTH_SHORT).show()
+                onLoginSuccess() // Navigate to main app
+                loginViewModel.resetState() // Reset state after handling
+            }
+            is LoginUiState.VerificationNeeded -> {
+                Toast.makeText(context, "Please verify your email.", Toast.LENGTH_SHORT).show()
+                onNavigateToVerify(state.email) // Navigate to verification screen
+                loginViewModel.resetState() // Reset state after handling
+            }
+            // Loading handled by isLoading derived state
+            // Error handled by generalError display
+            // Idle: No action needed
+            else -> {}
+        }
+    }
+
+
     // --- UI Definition ---
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("On The Way Login") }) // Updated title
+            TopAppBar(title = { Text("On The Way Login") })
         }
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 24.dp, vertical = 16.dp), // Adjusted padding
+                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .imePadding(), // Handles keyboard overlap
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
-            // Check Google authorization state
-            if (googleAuthState.isAuthorized) {
-                Text("Status: Logged In (Google)", style = MaterialTheme.typography.headlineSmall)
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Access Token:", style = MaterialTheme.typography.bodyMedium)
-                Text(googleAuthState.accessToken?.take(20)?.let { "$it..." } ?: "N/A", style = MaterialTheme.typography.bodySmall)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("ID Token:", style = MaterialTheme.typography.bodyMedium)
-                Text(googleAuthState.idToken?.take(20)?.let { "$it..." } ?: "N/A", style = MaterialTheme.typography.bodySmall)
-                Spacer(modifier = Modifier.height(24.dp))
-                Button(onClick = {
-                    authViewModel.performActionWithFreshTokens { accessToken, _, error ->
-                        if (error != null) {
-                            println("Failed to get fresh token for API call: ${error.message}")
-                        } else {
-                            println("Attempting API call with fresh token: ${accessToken?.take(10)}...")
-                            // TODO: Make your actual API call here using the accessToken
-                        }
-                    }
-                }) { Text("Call Protected API") }
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(onClick = { authViewModel.logout() }) { Text("Log Out from Google") }
-
-            } else {
-                // --- Logged Out UI State (Email/Password + Google) ---
-
+            // Display Login/Register Title when logged out
+            if (!googleAuthState.isAuthorized /* && loginState !is LoginSuccess */ ) { // Add check for email login state if needed
                 Text("Login or Register", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(24.dp))
+            }
 
-                // Display Google Auth error if one exists
-                googleAuthState.error?.let {
-                    Text(
-                        text = "Google Login Error: $it",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
-                }
-                // TODO: Add display for email/password login errors if needed
+            // --- Error Display Area ---
+            // Combine errors from both ViewModels if needed, or show separately
+            val googleError = googleAuthState.error
+            val loginError = if (loginState is LoginUiState.Error) (loginState as LoginUiState.Error).message else null
+            val displayError = loginError ?: googleError // Prioritize login error message
+
+            displayError?.let {
+                Text(
+                    text = it,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+            }
+
+            // --- Logged IN Info (Example - Can be removed once navigation works) ---
+            if (googleAuthState.isAuthorized /* || loginState is LoginSuccess */) {
+                Text("Status: Logged In", style = MaterialTheme.typography.headlineSmall)
+                Spacer(modifier = Modifier.height(16.dp))
+                // Maybe show user email? (Needs fetching for Google)
+                // Button(onClick = { /* Call API example */ }) { Text("Call API") }
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(onClick = {
+                    if (googleAuthState.isAuthorized) authViewModel.logout()
+                    // else loginViewModel.logout() // Add logout to LoginViewModel too
+                }) { Text("Log Out") }
+
+            } else {
+                // --- Logged OUT UI ---
 
                 // Email Field
                 OutlinedTextField(
                     value = email,
-                    onValueChange = { email = it },
+                    onValueChange = { email = it; loginViewModel.clearErrorState() /* Clear error on typing */ },
                     label = { Text("Email") },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    singleLine = true
+                    singleLine = true,
+                    enabled = !isLoading, // Disable when loading
+                    isError = loginState is LoginUiState.Error // Show error state
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Password Field
                 OutlinedTextField(
                     value = password,
-                    onValueChange = { password = it },
+                    onValueChange = { password = it; loginViewModel.clearErrorState() },
                     label = { Text("Password") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
@@ -154,38 +209,39 @@ fun LoginScreen(
                     trailingIcon = {
                         val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
                         val description = if (passwordVisible) "Hide password" else "Show password"
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }, enabled = !isLoading) { // Disable icon too
                             Icon(imageVector = image, description)
                         }
-                    }
+                    },
+                    enabled = !isLoading, // Disable when loading
+                    isError = loginState is LoginUiState.Error // Show error state
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Confirm (Email/Password Login) Button
+                // Login with Email Button
                 Button(
                     onClick = {
-                        // TODO: Implement actual Email/Password Login Logic here
-                        // Usually involves calling your backend API
-                        println("Confirm Clicked: Email=$email, Password=$password")
-                        // Example: authViewModel.loginWithEmailPassword(email, password)
+                        loginViewModel.signInUser(email, password)
                     },
+                    enabled = !isLoading, // Disable when loading
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Confirm")
+                    if (loginState is LoginUiState.Loading) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                    } else {
+                        Text("Login with Email")
+                    }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Register Account Text (Clickable)
                 TextButton(
-                    onClick = {
-                        println("Register Account Clicked!")
-                        onNavigateToRegister()
-                    },
+                    onClick = onNavigateToRegister,
+                    enabled = !isLoading, // Disable when loading
                     modifier = Modifier.align(Alignment.CenterHorizontally)
                 ) {
                     Text("Register Account")
                 }
-
 
                 Spacer(modifier = Modifier.height(24.dp))
                 Text("OR", style = MaterialTheme.typography.bodyMedium)
@@ -194,19 +250,26 @@ fun LoginScreen(
                 // Google Login Button
                 Button(
                     onClick = {
-                        // Clear any previous Google auth errors before retrying
-                        // Note: You might need a specific function in ViewModel to clear only the error state
-                        // authViewModel.clearErrorState()
+                        authViewModel.startAuthorization()
+                        // Consider clearing specific Google error state if needed before retry
+                        // authViewModel.clearGoogleError() // Implement if needed
                         val authRequest = authViewModel.buildAuthorizationRequest()
                         val authIntent = authViewModel.prepareAuthIntent(authRequest)
                         authLauncher.launch(authIntent)
                     },
+                    enabled = !isLoading, // Disable when loading
                     modifier = Modifier.fillMaxWidth()
+                    // Add Google branding if desired
                 ) {
-                    // Consider adding a Google icon here too
-                    Text("Log In with Google")
+                    // Show loading state specific to Google login if possible
+                    // For now, the general isLoading check disables the button
+                    if (googleAuthState.isLoading) { // Check the isLoading field from UserAuthState
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                    } else {
+                        Text("Log In with Google")
+                    }
                 }
-            }
-        }
-    }
+            } // End Logged Out UI
+        } // End Column
+    } // End Scaffold
 }
