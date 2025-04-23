@@ -83,6 +83,7 @@ fun MessagingScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .imePadding()
             // Don't add extra padding here if MessageInput adds its own
         ) {
             // Display errors if any
