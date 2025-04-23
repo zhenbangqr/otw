@@ -85,18 +85,18 @@ fun LoginScreen(
 
     // --- Effects ---
 
-    // Listen for Google End Session events
-    LaunchedEffect(key1 = Unit) {
-        authViewModel.endSessionEvent.collectLatest { intent ->
-            println("LoginScreen: Received end session event, launching intent.")
-            try {
-                endSessionLauncher.launch(intent)
-            } catch (e: Exception) {
-                println("Error launching end session intent: ${e.message}")
-                // Show error to user?
-            }
-        }
-    }
+//    // Listen for Google End Session events
+//    LaunchedEffect(key1 = Unit) {
+//        authViewModel.endSessionEvent.collectLatest { intent ->
+//            println("LoginScreen: Received end session event, launching intent.")
+//            try {
+//                endSessionLauncher.launch(intent)
+//            } catch (e: Exception) {
+//                println("Error launching end session intent: ${e.message}")
+//                // Show error to user?
+//            }
+//        }
+//    }
 
     // React to Google Auth State changes
     LaunchedEffect(googleAuthState) {

@@ -17,6 +17,7 @@ kotlinxCoroutines = "1.7.3"
 firebaseBom = "33.12.0"
 lifecycleCompose = "2.8.2"
 
+
 [libraries]
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx" } # Version managed by BOM

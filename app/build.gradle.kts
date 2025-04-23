@@ -46,13 +46,16 @@ android {
     }
 }
 
+// app/build.gradle.kts
+
 dependencies {
     // --- Core KTX & Lifecycle / Compose Runtime ---
-    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.core.ktx) // Keep ONE core-ktx
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose) // For collectAsStateWithLifecycle etc.
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.viewmodelCompose) // For viewModel() delegate
+    // implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0") // Add to TOML as libs.androidx.lifecycle.viewmodel.ktx if needed separately
 
     // --- Firebase (using BOM) ---
     implementation(platform(libs.firebase.bom)) // Defines versions for other Firebase libs
@@ -62,21 +65,18 @@ dependencies {
 
     // --- AppAuth (Google Sign In via OAuth) ---
     implementation(libs.openid.appauth) // Use the libs version (ensure defined in toml)
-    // implementation("net.openid:appauth:0.11.1") // REMOVE this duplicate string version
 
     // --- AndroidX Security (EncryptedSharedPreferences) ---
-    // Choose ONE version - EITHER the stable or the alpha, define it in libs.versions.toml
-    implementation(libs.androidx.security.crypto) // Use the libs version (ensure defined in toml, pointing to 1.0.0 or 1.1.0-alpha06)
-    // implementation("androidx.security:security-crypto:1.0.0") // REMOVE this duplicate string version
-    // implementation("androidx.security:security-crypto:1.1.0-alpha06") // REMOVE these duplicate string versions
+    // Ensure libs.androidx.security.crypto points to EITHER 1.0.0 OR 1.1.0-alpha06 in libs.versions.toml
+    implementation(libs.androidx.security.crypto)
 
     // --- AndroidX Browser (CustomTabsIntent) ---
-    implementation(libs.androidx.browser) // Use the libs version (ensure defined in toml)
-    // implementation("androidx.browser:browser:1.8.0") // REMOVE this duplicate string version
+    // Ensure libs.androidx.browser points to the desired version (e.g., 1.8.0) in libs.versions.toml
+    implementation(libs.androidx.browser)
 
     // --- Kotlin Coroutines ---
-    implementation(libs.kotlinx.coroutines.android) // Use the libs version (ensure defined in toml)
-    // implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3") // REMOVE this duplicate string version
+    // Ensure libs.kotlinx.coroutines.android points to the desired version in libs.versions.toml
+    implementation(libs.kotlinx.coroutines.android)
 
     // --- Compose UI & Navigation ---
     implementation(platform(libs.androidx.compose.bom)) // Compose BOM
@@ -95,8 +95,4 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-
-    // --- Other Dependencies You Had (Check if still needed/covered) ---
-    // implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0") // Often useful, add to libs.versions.toml if needed as 'libs.androidx.lifecycle.viewmodel.ktx'
-
 }
