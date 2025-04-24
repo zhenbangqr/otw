@@ -13,6 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.zhenbang.otw.ui.theme.OnTheWayTheme
 import com.zhenbang.otw.newsApi.NewsScreen
+import com.zhenbang.otw.weatherApi.ScreenWeather
+import com.zhenbang.otw.zpApi.ScreenZPAPI
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -21,7 +23,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             OnTheWayTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    NewsScreen(modifier = Modifier.padding(innerPadding)
+                    ScreenWeather(modifier = Modifier.padding(innerPadding)
                     )
                 }
             }

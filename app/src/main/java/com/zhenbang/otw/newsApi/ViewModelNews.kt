@@ -31,7 +31,7 @@ class ViewModelNews : ViewModel() {
         query: String? = null,
         country: String? = "my", // Default country
         category: String? = "politics", // Default category
-        language: String? = "zh,en", // Default language
+        language: String? = "zh", // Default language
     ) {
         // Optional: prevent refetch if already loading, or allow it
         // if (_newsState.value is UiState.Loading) return
