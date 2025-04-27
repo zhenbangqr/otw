@@ -1,4 +1,4 @@
-package com.zhenbang.otw // Adjust package if needed
+package com.zhenbang.otw.register // Adjust package if needed
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
@@ -18,8 +18,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.zhenbang.otw.auth.RegisterUiState
-import com.zhenbang.otw.auth.RegisterViewModel
 // Removed kotlinx.coroutines.delay as it's not used here anymore
 import android.util.Patterns
 import android.widget.Toast // Import Toast for simple feedback
@@ -29,7 +27,6 @@ import android.widget.Toast // Import Toast for simple feedback
 fun RegisterScreen(
     registerViewModel: RegisterViewModel = viewModel(),
     onNavigateToLogin: () -> Unit,
-    // *** ADD THIS CALLBACK PARAMETER ***
     onNavigateToVerify: (email: String) -> Unit
 ) {
     // --- State Variables for UI Input ---

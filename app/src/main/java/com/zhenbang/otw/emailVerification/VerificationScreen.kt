@@ -1,4 +1,4 @@
-package com.zhenbang.otw // Adjust package if needed
+package com.zhenbang.otw.emailVerification // Adjust package if needed
 
 // *** Ensure these imports are present and correct ***
 import android.widget.Toast
@@ -13,8 +13,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.zhenbang.otw.auth.VerificationViewModel // *** Use VerificationViewModel ***
-import com.zhenbang.otw.auth.VerificationUiState // *** Use VerificationUiState ***
 import kotlinx.coroutines.delay
 //-----------------------------------------------------
 

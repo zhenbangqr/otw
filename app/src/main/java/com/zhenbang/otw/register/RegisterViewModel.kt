@@ -1,12 +1,12 @@
-package com.zhenbang.otw.auth
+package com.zhenbang.otw.register
 
 import android.app.Application
 import android.util.Log
+import android.util.Patterns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhenbang.otw.data.AuthRepository
 import com.zhenbang.otw.data.FirebaseAuthRepository // Assuming direct instantiation for now
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -75,7 +75,7 @@ class RegisterViewModel(application: Application) : AndroidViewModel(application
     // Keep these, but update mapErrorToMessage if needed for new Firebase exceptions
 
     private fun isValidEmailFormat(email: String): Boolean {
-        return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
+        return Patterns.EMAIL_ADDRESS.matcher(email).matches()
     }
 
     private fun mapErrorToMessage(exception: Throwable, defaultPrefix: String): String {

@@ -1,4 +1,4 @@
-package com.zhenbang.otw.auth
+package com.zhenbang.otw.emailVerification
 
 // Represents the different states the Verification UI can be in
 sealed class VerificationUiState {

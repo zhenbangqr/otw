@@ -58,6 +58,7 @@ dependencies {
     // implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0") // Add to TOML as libs.androidx.lifecycle.viewmodel.ktx if needed separately
 
     // --- Firebase (using BOM) ---
+    implementation("com.google.firebase:firebase-firestore-ktx")
     implementation(platform(libs.firebase.bom)) // Defines versions for other Firebase libs
     implementation(libs.firebase.auth.ktx)     // Essential for Firebase Auth + Kotlin extensions
     implementation(libs.firebase.analytics)   // Firebase Analytics KTX

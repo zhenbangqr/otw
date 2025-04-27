@@ -30,7 +30,6 @@ import net.openid.appauth.AuthorizationServiceConfiguration
  * (Updated to remove browser end session attempt - Recommended Fix)
  */
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
-
     private val TAG = "AuthViewModel"
     private val prefsFile = "auth_prefs_secure"
     private val authStateKey = "authStateJson"

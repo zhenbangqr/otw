@@ -17,7 +17,7 @@ import com.zhenbang.otw.ui.theme.OnTheWayTheme
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
 // Make sure your LoginScreen composable is imported if used in Preview
-// import com.zhenbang.otw.LoginScreen
+// import com.zhenbang.otw.login.LoginScreen
 
 class MainActivity : ComponentActivity() {
 
@@ -33,12 +33,12 @@ class MainActivity : ComponentActivity() {
         handleRedirectIntent(intent) // Pass the activity's current intent
 
         setContent {
-            OnTheWayTheme { // Apply your theme
+            OnTheWayTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    AppNavigation() // Set up navigation here
+                    AppNavigation()
                 }
             }
         }

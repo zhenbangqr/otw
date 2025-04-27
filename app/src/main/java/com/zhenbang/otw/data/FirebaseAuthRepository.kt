@@ -6,41 +6,43 @@ import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
+import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.firestore.SetOptions // Import SetOptions
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.firestore.ktx.toObject // Import toObject extension
+import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.tasks.await
 import java.lang.Exception
-import java.lang.IllegalArgumentException // Keep for mapping specific errors
-import java.lang.IllegalStateException // Keep for mapping specific errors
+import java.lang.IllegalArgumentException
+import java.lang.IllegalStateException
 
-// Implementation using Firebase Authentication SDK
-// REMEMBER TO ADD FIREBASE AUTH DEPENDENCY to your build.gradle
-// implementation(platform("com.google.firebase:firebase-bom:LATEST_VERSION")) // Check for latest BOM
-// implementation("com.google.firebase:firebase-auth-ktx")
-// implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:LATEST_VERSION") // For await()
-class FirebaseAuthRepository : AuthRepository { // Implement the interface
+class FirebaseAuthRepository : AuthRepository {
 
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
-    private val TAG = "FirebaseAuthRepository" // Tag for logging
+    private val db = Firebase.firestore
+    private val usersCollection = db.collection("users") // Reference to users collection
+    private val TAG = "FirebaseAuthRepository"
+
+    // ... (createUserAndSendVerificationLink, signInWithEmailAndPassword, checkCurrentUserVerificationStatus, resendVerificationLink, saveUserDataAfterVerification, linkGoogleCredentialToFirebase, saveOrUpdateUserLoginInfo, getUserProfile remain the same) ...
 
     /**
      * Creates a new user with email and password, then sends a verification email link.
+     * User remains logged in but unverified after this call.
      */
     override suspend fun createUserAndSendVerificationLink(email: String, password: String): Result<Unit> {
         return try {
             Log.d(TAG, "Attempting to create user: $email")
-            // 1. Create the user
             val authResult = firebaseAuth.createUserWithEmailAndPassword(email, password).await()
             val user = authResult.user
-
             if (user == null) {
                 Log.w(TAG, "User creation succeeded but user object is null.")
                 Result.failure(IllegalStateException("User creation returned null user."))
             } else {
                 Log.d(TAG, "User created successfully: ${user.uid}. Sending verification email.")
-                // 2. Send verification link
-                user.sendEmailVerification().await() // await() waits for the task to complete
+                user.sendEmailVerification().await()
                 Log.d(TAG, "Verification email sent to: $email")
-                // Optional: Sign the user out immediately after registration if desired
-                // firebaseAuth.signOut()
+                // NOTE: User remains logged in, but unverified.
                 Result.success(Unit)
             }
         } catch (e: FirebaseAuthUserCollisionException) {
@@ -51,20 +53,17 @@ class FirebaseAuthRepository : AuthRepository { // Implement the interface
             Result.failure(IllegalArgumentException("Password is too weak. Please choose a stronger password."))
         } catch (e: Exception) {
             Log.e(TAG, "User creation or verification email sending failed for $email", e)
-            // Catch other Firebase/general exceptions
-            Result.failure(e) // Propagate general exceptions
+            Result.failure(e)
         }
     }
 
     /**
      * Signs in an existing user with their email and password.
-     * Note: Does NOT check verification status here; ViewModel should do that after success.
      */
     override suspend fun signInWithEmailAndPassword(email: String, password: String): Result<Unit> {
         return try {
             Log.d(TAG, "Attempting to sign in user: $email")
             firebaseAuth.signInWithEmailAndPassword(email, password).await()
-            // Sign in successful, Firebase Auth automatically persists the user session.
             Log.d(TAG, "Sign in successful for: $email")
             Result.success(Unit)
         } catch (e: FirebaseAuthInvalidUserException) {
@@ -72,19 +71,16 @@ class FirebaseAuthRepository : AuthRepository { // Implement the interface
             Result.failure(IllegalArgumentException("No account found with this email address."))
         } catch (e: FirebaseAuthInvalidCredentialsException) {
             Log.w(TAG, "Sign in failed: Invalid credentials for $email.", e)
-            // Covers wrong password, potentially disabled account etc.
             Result.failure(IllegalArgumentException("Incorrect password or invalid user."))
         } catch (e: Exception) {
             Log.e(TAG, "signInWithEmailAndPassword failed for $email", e)
-            // Catch other potential exceptions during sign in
-            Result.failure(Exception("Login failed. Please try again later.", e)) // Wrap general exception
+            Result.failure(Exception("Login failed. Please try again later.", e))
         }
     }
 
 
     /**
      * Checks the verification status of the currently signed-in user.
-     * IMPORTANT: This method reloads the user state from Firebase first.
      */
     override suspend fun checkCurrentUserVerificationStatus(): Result<Boolean> {
         return try {
@@ -100,13 +96,12 @@ class FirebaseAuthRepository : AuthRepository { // Implement the interface
             Result.success(isVerified)
         } catch (e: Exception) {
             Log.e(TAG, "checkCurrentUserVerificationStatus failed", e)
-            Result.failure(e) // Propagate exception
+            Result.failure(e)
         }
     }
 
     /**
-     * Resends the verification email link to the currently signed-in user,
-     * if they are signed in and their email is not already verified.
+     * Resends the verification email link to the currently signed-in user.
      */
     override suspend fun resendVerificationLink(): Result<Unit> {
         return try {
@@ -125,19 +120,129 @@ class FirebaseAuthRepository : AuthRepository { // Implement the interface
             }
         } catch (e: Exception) {
             Log.e(TAG, "resendVerificationLink failed", e)
-            Result.failure(e) // Propagate exception
+            Result.failure(e)
         }
     }
 
-    // --- Add other repository methods as needed ---
-    // Example:
-    // override suspend fun signOut(): Result<Unit> {
-    //     return try {
-    //         firebaseAuth.signOut()
-    //         Result.success(Unit)
-    //     } catch (e: Exception) {
-    //          Log.e(TAG, "signOut failed", e)
-    //         Result.failure(e)
-    //     }
-    // }
+    /**
+     * Saves basic user information (like email) to the database after verification.
+     */
+    override suspend fun saveUserDataAfterVerification(userId: String, email: String): Result<Unit> {
+        return try {
+            Log.d(TAG, "Attempting to save user data for $userId with email $email")
+            val userProfile = hashMapOf(
+                "email" to email,
+                "uid" to userId, // Store UID as well
+                "createdAt" to com.google.firebase.Timestamp.now()
+            )
+
+            usersCollection.document(userId)
+                .set(userProfile, SetOptions.merge())
+                .await()
+
+            Log.d(TAG, "User data saved successfully for $userId")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save user data for $userId", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Saves or updates basic user information (like email, last login) to the database upon successful login.
+     */
+    override suspend fun saveOrUpdateUserLoginInfo(user: FirebaseUser): Result<Unit> {
+        val userId = user.uid
+        val userEmail = user.email
+
+        if (userEmail == null) {
+            Log.w(TAG, "Cannot save user info: email is null for user $userId")
+            return Result.failure(IllegalStateException("User email is null."))
+        }
+
+        Log.d(TAG, "Preparing to save/update login info for $userId")
+        return try {
+            val userLoginInfo = hashMapOf(
+                "email" to userEmail,
+                "uid" to userId,
+                "lastLoginAt" to com.google.firebase.Timestamp.now()
+            )
+            Log.d(TAG, "Data to save/merge: $userLoginInfo")
+
+            val docRef = usersCollection.document(userId)
+            Log.d(TAG, "Obtained DocumentReference: ${docRef.path}")
+
+            Log.d(TAG, "Executing Firestore set operation...")
+            docRef.set(userLoginInfo, SetOptions.merge()).await() // Use merge option
+            Log.d(TAG, "Firestore set operation completed successfully for $userId")
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "!!! Firestore Error in saveOrUpdateUserLoginInfo for $userId !!!", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Links a Google ID token to Firebase Auth, signing the user in.
+     */
+    override suspend fun linkGoogleCredentialToFirebase(idToken: String): Result<FirebaseUser> {
+        return try {
+            Log.d(TAG, "Attempting to link Google ID token to Firebase")
+            val credential = GoogleAuthProvider.getCredential(idToken, null)
+            val authResult = firebaseAuth.signInWithCredential(credential).await()
+            val firebaseUser = authResult.user
+            if (firebaseUser != null) {
+                Log.d(TAG, "Successfully linked/signed in Google user to Firebase: ${firebaseUser.uid}")
+                Result.success(firebaseUser)
+            } else {
+                Log.w(TAG, "Firebase sign-in with Google credential returned null user.")
+                Result.failure(IllegalStateException("Firebase sign-in with Google credential returned null user."))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to link/sign in Google credential to Firebase", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Fetches the UserProfile data from Firestore for the given user ID.
+     */
+    override suspend fun getUserProfile(userId: String): Result<UserProfile?> {
+        return try {
+            Log.d(TAG, "Fetching user profile for $userId")
+            val documentSnapshot = usersCollection.document(userId).get().await()
+            if (documentSnapshot.exists()) {
+                val userProfile = documentSnapshot.toObject<UserProfile>()
+                Log.d(TAG, "User profile fetched successfully for $userId. Profile: $userProfile")
+                Result.success(userProfile)
+            } else {
+                Log.d(TAG, "User profile document does not exist for $userId")
+                Result.success(null) // Return success with null data if document doesn't exist
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to fetch user profile for $userId", e)
+            Result.failure(e)
+        }
+    }
+
+    // --- IMPLEMENTATION of Update User Profile (Using SetOptions.merge) ---
+    override suspend fun updateUserProfile(userId: String, profileUpdates: Map<String, Any?>): Result<Unit> {
+        return try {
+            Log.d(TAG, "Attempting to update profile for $userId with data: $profileUpdates")
+
+            // *** Use set with merge instead of update ***
+            usersCollection.document(userId)
+                .set(profileUpdates, SetOptions.merge()) // Creates if not exists, merges if exists
+                .await()
+            // *******************************************
+
+            Log.d(TAG, "User profile created/updated successfully for $userId")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to create/update user profile for $userId", e)
+            Result.failure(e)
+        }
+    }
+    // -------------------------------------------------------------------
 }
