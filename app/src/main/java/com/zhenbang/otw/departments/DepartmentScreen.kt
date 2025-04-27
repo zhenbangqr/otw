@@ -79,7 +79,6 @@ import com.zhenbang.otw.tasks.TaskDetailScreen
 import com.zhenbang.otw.tasks.TaskViewModel
 import com.zhenbang.otw.ui.theme.OnTheWayTheme
 
-
 sealed class Screen(val route: String) {
     object DepartmentList : Screen("department_list")
     object DepartmentDetails : Screen("department_details/{departmentId}/{departmentName}") {
