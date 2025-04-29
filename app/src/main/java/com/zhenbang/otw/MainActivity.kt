@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.zhenbang.otw.auth.AuthViewModel // Import your AppAuth ViewModel
+import com.zhenbang.otw.departments.DepartmentNavigation
 import com.zhenbang.otw.ui.theme.OnTheWayTheme
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
@@ -38,6 +39,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
+                    //DepartmentNavigation()
                     AppNavigation()
                 }
             }

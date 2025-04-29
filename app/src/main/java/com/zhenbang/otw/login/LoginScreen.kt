@@ -25,12 +25,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zhenbang.otw.auth.AuthViewModel
 
-
-/**
- * Composable function for the Login Screen UI.
- * Provides options for email/password login and Google OAuth login.
- * (Updated to trigger save/link on login success)
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
@@ -62,20 +56,12 @@ fun LoginScreen(
         } ?: run {
             if (result.resultCode != Activity.RESULT_OK) {
                 Toast.makeText(context, "Google Sign-In cancelled or failed.", Toast.LENGTH_SHORT).show()
-                loginViewModel.resetState() // Reset LoginViewModel state on Google cancel/fail
+                loginViewModel.resetState()
             }
             authViewModel.handleAuthorizationResponse(Intent())
         }
         println("Google Auth Activity completed with result code: ${result.resultCode}")
     }
-
-    // --- Commented out End Session Launcher ---
-    // val endSessionLauncher = rememberLauncherForActivityResult(...) { ... }
-
-    // --- Effects ---
-
-    // --- Commented out End Session Listener ---
-    // LaunchedEffect(key1 = Unit) { authViewModel.endSessionEvent.collectLatest { ... } }
 
     // React to Google Auth State changes (from AuthViewModel)
     LaunchedEffect(googleAuthState) {
@@ -97,7 +83,7 @@ fun LoginScreen(
         when (val state = loginState) {
             // This state is now set AFTER successful save/link for BOTH methods
             is LoginUiState.LoginVerifiedSuccess -> {
-                Toast.makeText(context, "Login Successful!", Toast.LENGTH_SHORT).show()
+//                Toast.makeText(context, "Login Successful!", Toast.LENGTH_SHORT).show()
                 onLoginSuccess() // Trigger navigation passed from AppNavigation
                 loginViewModel.resetState() // Reset state after handling
             }
@@ -110,12 +96,9 @@ fun LoginScreen(
                 // Error display is handled below, but log it here too
                 println("LoginScreen observed LoginViewModel Error: ${state.message}")
             }
-            // Loading handled by isLoading derived state
-            // Idle: No action needed
             else -> {}
         }
     }
-
 
     // --- UI Definition ---
     Scaffold(
@@ -223,7 +206,6 @@ fun LoginScreen(
             // Google Login Button
             Button(
                 onClick = {
-                    // Start AppAuth flow via AuthViewModel
                     authViewModel.startAuthorization()
                     val authRequest = authViewModel.buildAuthorizationRequest()
                     val authIntent = authViewModel.prepareAuthIntent(authRequest)
@@ -240,7 +222,6 @@ fun LoginScreen(
                 enabled = !isLoading,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // Show loading based on combined isLoading state
                 if (isLoading) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
                 } else {

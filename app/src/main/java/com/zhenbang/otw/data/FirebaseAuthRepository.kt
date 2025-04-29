@@ -1,5 +1,6 @@
 package com.zhenbang.otw.data
 
+import android.net.Uri // Import Uri
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
@@ -12,19 +13,90 @@ import com.google.firebase.firestore.SetOptions // Import SetOptions
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.firestore.ktx.toObject // Import toObject extension
 import com.google.firebase.ktx.Firebase
+// --- Add Storage Imports ---
+import com.google.firebase.storage.ktx.storage
+// ---------------------------
 import kotlinx.coroutines.tasks.await
 import java.lang.Exception
 import java.lang.IllegalArgumentException
 import java.lang.IllegalStateException
+import java.util.UUID // Import UUID for unique filenames
 
 class FirebaseAuthRepository : AuthRepository {
 
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
     private val db = Firebase.firestore
-    private val usersCollection = db.collection("users") // Reference to users collection
+    private val storage = Firebase.storage // Storage instance
+    private val usersCollection = db.collection("users")
     private val TAG = "FirebaseAuthRepository"
 
-    // ... (createUserAndSendVerificationLink, signInWithEmailAndPassword, checkCurrentUserVerificationStatus, resendVerificationLink, saveUserDataAfterVerification, linkGoogleCredentialToFirebase, saveOrUpdateUserLoginInfo, getUserProfile remain the same) ...
+    // ... (createUserAndSendVerificationLink, signInWithEmailAndPassword, checkCurrentUserVerificationStatus, resendVerificationLink, linkGoogleCredentialToFirebase, getUserProfile, updateUserProfile, uploadProfileImage remain the same) ...
+
+    /**
+     * Saves basic user information (like email) to the database after verification.
+     * Creates the document or merges data if it exists. Sets initial profileImageUrl to null.
+     */
+    override suspend fun saveUserDataAfterVerification(userId: String, email: String): Result<Unit> {
+        return try {
+            Log.d(TAG, "Attempting to save user data for $userId with email $email after verification")
+            val userProfile = hashMapOf(
+                "email" to email,
+                "uid" to userId,
+                "createdAt" to com.google.firebase.Timestamp.now(),
+                "profileImageUrl" to null // Explicitly set to null for email users initially
+            )
+
+            usersCollection.document(userId)
+                .set(userProfile, SetOptions.merge()) // Use set with merge
+                .await()
+
+            Log.d(TAG, "User data saved successfully for $userId")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save user data for $userId", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Saves or updates basic user login info (email, uid, lastLoginAt).
+     * *** Does NOT update profileImageUrl anymore ***
+     */
+    override suspend fun saveOrUpdateUserLoginInfo(user: FirebaseUser): Result<Unit> {
+        val userId = user.uid
+        val userEmail = user.email
+        // *** REMOVED photoUrl fetching ***
+        // val photoUrl = user.photoUrl?.toString()
+
+        if (userEmail == null) {
+            Log.w(TAG, "Cannot save user info: email is null for user $userId")
+            return Result.failure(IllegalStateException("User email is null."))
+        }
+
+        Log.d(TAG, "Preparing to save/update login info for $userId")
+        return try {
+            // Only update essential login info now
+            val userLoginInfo = mapOf<String, Any?>(
+                "email" to userEmail,
+                "uid" to userId,
+                "lastLoginAt" to com.google.firebase.Timestamp.now()
+                // *** REMOVED profileImageUrl from here ***
+            )
+            Log.d(TAG, "Data to save/merge (login info only): $userLoginInfo")
+
+            val docRef = usersCollection.document(userId)
+            Log.d(TAG, "Obtained DocumentReference: ${docRef.path}")
+
+            Log.d(TAG, "Executing Firestore set(merge) operation for login info...")
+            docRef.set(userLoginInfo, SetOptions.merge()).await() // Use set with merge
+            Log.d(TAG, "Firestore set(merge) for login info completed successfully for $userId")
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "!!! Firestore Error in saveOrUpdateUserLoginInfo for $userId !!!", e)
+            Result.failure(e)
+        }
+    }
 
     /**
      * Creates a new user with email and password, then sends a verification email link.
@@ -125,65 +197,6 @@ class FirebaseAuthRepository : AuthRepository {
     }
 
     /**
-     * Saves basic user information (like email) to the database after verification.
-     */
-    override suspend fun saveUserDataAfterVerification(userId: String, email: String): Result<Unit> {
-        return try {
-            Log.d(TAG, "Attempting to save user data for $userId with email $email")
-            val userProfile = hashMapOf(
-                "email" to email,
-                "uid" to userId, // Store UID as well
-                "createdAt" to com.google.firebase.Timestamp.now()
-            )
-
-            usersCollection.document(userId)
-                .set(userProfile, SetOptions.merge())
-                .await()
-
-            Log.d(TAG, "User data saved successfully for $userId")
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to save user data for $userId", e)
-            Result.failure(e)
-        }
-    }
-
-    /**
-     * Saves or updates basic user information (like email, last login) to the database upon successful login.
-     */
-    override suspend fun saveOrUpdateUserLoginInfo(user: FirebaseUser): Result<Unit> {
-        val userId = user.uid
-        val userEmail = user.email
-
-        if (userEmail == null) {
-            Log.w(TAG, "Cannot save user info: email is null for user $userId")
-            return Result.failure(IllegalStateException("User email is null."))
-        }
-
-        Log.d(TAG, "Preparing to save/update login info for $userId")
-        return try {
-            val userLoginInfo = hashMapOf(
-                "email" to userEmail,
-                "uid" to userId,
-                "lastLoginAt" to com.google.firebase.Timestamp.now()
-            )
-            Log.d(TAG, "Data to save/merge: $userLoginInfo")
-
-            val docRef = usersCollection.document(userId)
-            Log.d(TAG, "Obtained DocumentReference: ${docRef.path}")
-
-            Log.d(TAG, "Executing Firestore set operation...")
-            docRef.set(userLoginInfo, SetOptions.merge()).await() // Use merge option
-            Log.d(TAG, "Firestore set operation completed successfully for $userId")
-
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Log.e(TAG, "!!! Firestore Error in saveOrUpdateUserLoginInfo for $userId !!!", e)
-            Result.failure(e)
-        }
-    }
-
-    /**
      * Links a Google ID token to Firebase Auth, signing the user in.
      */
     override suspend fun linkGoogleCredentialToFirebase(idToken: String): Result<FirebaseUser> {
@@ -226,16 +239,16 @@ class FirebaseAuthRepository : AuthRepository {
         }
     }
 
-    // --- IMPLEMENTATION of Update User Profile (Using SetOptions.merge) ---
+    /**
+     * Updates specific fields in the user's profile document in Firestore using merge.
+     * Creates the document if it doesn't exist.
+     */
     override suspend fun updateUserProfile(userId: String, profileUpdates: Map<String, Any?>): Result<Unit> {
         return try {
             Log.d(TAG, "Attempting to update profile for $userId with data: $profileUpdates")
-
-            // *** Use set with merge instead of update ***
             usersCollection.document(userId)
-                .set(profileUpdates, SetOptions.merge()) // Creates if not exists, merges if exists
+                .set(profileUpdates, SetOptions.merge()) // Use set with merge
                 .await()
-            // *******************************************
 
             Log.d(TAG, "User profile created/updated successfully for $userId")
             Result.success(Unit)
@@ -244,5 +257,22 @@ class FirebaseAuthRepository : AuthRepository {
             Result.failure(e)
         }
     }
-    // -------------------------------------------------------------------
+
+    /**
+     * Uploads the selected profile image to Firebase Storage.
+     */
+    override suspend fun uploadProfileImage(userId: String, imageUri: Uri): Result<String> {
+        return try {
+            val filename = "${UUID.randomUUID()}.jpg"
+            val storageRef = storage.reference.child("profile_images/$userId/$filename")
+            Log.d(TAG, "Uploading image to: ${storageRef.path}")
+            val uploadTask = storageRef.putFile(imageUri).await()
+            val downloadUrl = uploadTask.storage.downloadUrl.await().toString()
+            Log.d(TAG, "Image uploaded successfully. Download URL: $downloadUrl")
+            Result.success(downloadUrl)
+        } catch (e: Exception) {
+            Log.e(TAG, "Image upload failed for user $userId", e)
+            Result.failure(e)
+        }
+    }
 }
