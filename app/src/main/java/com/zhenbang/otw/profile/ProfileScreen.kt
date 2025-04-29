@@ -1,5 +1,5 @@
 // Ensure this package matches where your other UI screens are
-package com.zhenbang.otw // Or com.zhenbang.otw.profile
+package com.zhenbang.otw.profile
 
 import android.net.Uri // Import Uri
 import android.widget.Toast // For placeholder clicks
@@ -49,17 +49,17 @@ import com.zhenbang.otw.profile.ProfileStatus // Import ProfileStatus
 fun ProfileScreen(
     profileViewModel: ProfileViewModel = viewModel(),
     onLogout: () -> Unit,
-    // Add navigation callback if needed, e.g., to go back
-    // onNavigateBack: () -> Unit
+    // --- Add navigation callback for back ---
+    onNavigateBack: () -> Unit
+    // --------------------------------------
 ) {
     val uiState by profileViewModel.uiState.collectAsState()
     val context = LocalContext.current
 
     // --- ActivityResultLauncher for Image Picker ---
     val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent() // Use GetContent for gallery
+        contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        // Pass the selected URI (or null) to the ViewModel
         profileViewModel.handleProfileImageSelection(uri)
     }
     // ---------------------------------------------
@@ -67,13 +67,12 @@ fun ProfileScreen(
     // Fetch profile when the screen is composed if not already loaded/loading
     LaunchedEffect(Unit) {
         val userId = FirebaseAuth.getInstance().currentUser?.uid
-        // Fetch only if we don't have a profile OR if the status indicates an error occurred previously
         if (userId != null && (uiState.userProfile == null || uiState.profileStatus == ProfileStatus.ERROR)) {
             profileViewModel.fetchUserProfile(userId)
         }
     }
 
-    // Show toast for errors (can be refined with Snackbar)
+    // Show toast for errors
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let {
             Toast.makeText(context, it, Toast.LENGTH_LONG).show()
@@ -86,9 +85,13 @@ fun ProfileScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Profile") },
+                // --- Add Navigation Icon ---
                 navigationIcon = {
-                    // IconButton(onClick = onNavigateBack) { ... }
+                    IconButton(onClick = onNavigateBack) { // Use the callback
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
                 },
+                // ---------------------------
                 actions = {
                     IconButton(onClick = { /* TODO: Handle More options */ }) {
                         Icon(Icons.Filled.MoreVert, contentDescription = "More options")
@@ -97,7 +100,7 @@ fun ProfileScreen(
             )
         }
     ) { paddingValues ->
-        Box(modifier = Modifier.fillMaxSize()) { // Use Box to overlay progress indicator
+        Box(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
@@ -111,19 +114,17 @@ fun ProfileScreen(
                         name = uiState.userProfile?.displayName ?: "Loading...",
                         bio = uiState.userProfile?.bio ?: "",
                         imageUrl = uiState.userProfile?.profileImageUrl,
-                        // --- Launch image picker on click ---
                         onImageClick = {
-                            imagePickerLauncher.launch("image/*") // Mime type for images
+                            imagePickerLauncher.launch("image/*")
                         }
-                        // ------------------------------------
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                // Settings Sections (Using Updated SettingsListItem with Title/Primary Text)
+                // Settings Sections
                 item { SettingsListItem(title = "Account", primaryText = "Change number") { Toast.makeText(context, "Change number clicked", Toast.LENGTH_SHORT).show() } }
                 item { SettingsListItem(title = "Privacy", primaryText = "Block users") { Toast.makeText(context, "Block users clicked", Toast.LENGTH_SHORT).show() } }
-                item { SettingsListItem(title = "Avatar", primaryText = "Change profile picture") { imagePickerLauncher.launch("image/*") } } // Also launch from here
+                item { SettingsListItem(title = "Avatar", primaryText = "Change profile picture") { imagePickerLauncher.launch("image/*") } }
                 item { SettingsListItem(title = "Chats", primaryText = "Themes") { Toast.makeText(context, "Themes clicked", Toast.LENGTH_SHORT).show() } }
                 item { SettingsListItem(title = "Notifications", primaryText = "Message, groups and call tones") { Toast.makeText(context, "Notifications clicked", Toast.LENGTH_SHORT).show() } }
                 item { SettingsListItem(title = "App language", primaryText = "English (device's language)") { Toast.makeText(context, "Language clicked", Toast.LENGTH_SHORT).show() } }
@@ -148,11 +149,10 @@ fun ProfileScreen(
                 }
             } // End LazyColumn
 
-            // --- Show Loading Indicator during Image Upload ---
+            // Loading Indicator during Image Upload
             if (uiState.isUploadingImage) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             }
-            // -------------------------------------------------
         } // End Box
     } // End Scaffold
 }
@@ -164,7 +164,7 @@ fun ProfileHeader(
     name: String,
     bio: String,
     imageUrl: String?,
-    onImageClick: () -> Unit // Callback for image click
+    onImageClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -172,13 +172,12 @@ fun ProfileHeader(
             .padding(horizontal = 16.dp, vertical = 24.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Profile Picture - Make it clickable
-        Box( // Use Box to potentially overlay an edit icon later
+        Box(
             modifier = Modifier
                 .size(80.dp)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                .clickable(onClick = onImageClick) // Make clickable
+                .clickable(onClick = onImageClick)
         ) {
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
@@ -186,18 +185,12 @@ fun ProfileHeader(
                     .crossfade(true)
                     .build(),
                 contentDescription = "Profile Picture",
-                modifier = Modifier.fillMaxSize(), // Fill the Box
+                modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-            // TODO: Optionally add an edit icon overlay here
         }
-
         Spacer(modifier = Modifier.width(16.dp))
-
-        // Name and Bio Column
-        Column(
-            modifier = Modifier.weight(1f)
-        ) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = name,
                 style = MaterialTheme.typography.headlineSmall,
@@ -214,38 +207,32 @@ fun ProfileHeader(
     }
 }
 
-// --- Updated SettingsListItem ---
 @Composable
 fun SettingsListItem(
-    title: String, // Changed primaryText to title
-    primaryText: String, // Added primaryText for the main action text
+    title: String,
+    primaryText: String,
     onClick: () -> Unit
 ) {
-    Column( // Use Column to stack title and primary text
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp) // Adjust vertical padding
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Text(
             text = title,
-            // --- Use bodyLarge and Bold for Title ---
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Bold,
-            // ---------------------------------------
-            modifier = Modifier.padding(bottom = 2.dp) // Small space below title
+            modifier = Modifier.padding(bottom = 2.dp)
         )
-        Row( // Keep Row for primary text and arrow
+        Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = primaryText,
-                // --- Use bodyMedium for Primary Text ---
                 style = MaterialTheme.typography.bodyMedium,
-                // --------------------------------------
-                modifier = Modifier.weight(1f), // Allow text to take space
-                // Optional: Dim the primary text slightly
+                modifier = Modifier.weight(1f),
                 color = LocalContentColor.current.copy(alpha = 0.8f)
             )
             Icon(
@@ -255,5 +242,7 @@ fun SettingsListItem(
             )
         }
     }
-    Divider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.1f)) // Add divider after each item
+    Divider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.1f))
 }
+
+// --- REMOVED Placeholder R object ---

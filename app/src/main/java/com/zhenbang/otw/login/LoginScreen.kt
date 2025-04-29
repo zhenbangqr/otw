@@ -1,4 +1,4 @@
-package com.zhenbang.otw.login
+package com.zhenbang.otw.login // Adjust package if needed
 
 import android.app.Activity
 import android.content.Intent
@@ -6,7 +6,9 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState // Import rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll // Import verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -24,6 +26,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zhenbang.otw.auth.AuthViewModel
+// Use correct import if LoginViewModel is in auth package
+import com.zhenbang.otw.login.LoginViewModel
+import com.zhenbang.otw.login.LoginUiState
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,7 +42,7 @@ fun LoginScreen(
 ) {
     // --- State from ViewModels ---
     val googleAuthState by authViewModel.userAuthState.collectAsStateWithLifecycle()
-    val loginState by loginViewModel.uiState.collectAsStateWithLifecycle() // Observe LoginViewModel state
+    val loginState by loginViewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     // --- Input State ---
@@ -65,14 +71,13 @@ fun LoginScreen(
 
     // React to Google Auth State changes (from AuthViewModel)
     LaunchedEffect(googleAuthState) {
-        // Check if Google Sign-In via AppAuth succeeded and we have an ID token
         if (googleAuthState.isAuthorized && googleAuthState.idToken != null) {
             println("Google Sign-In successful via AppAuth! Triggering Firebase link...")
             Toast.makeText(context, "Google Sign-In Success! Finalizing...", Toast.LENGTH_SHORT).show()
             loginViewModel.handleGoogleSignInSuccess(googleAuthState.idToken!!)
         }
         googleAuthState.error?.let {
-            if (loginState !is LoginUiState.Error) { // Avoid overwriting LoginViewModel errors
+            if (loginState !is LoginUiState.Error) {
                 Toast.makeText(context, "Google Sign-In Error: $it", Toast.LENGTH_LONG).show()
             }
         }
@@ -81,24 +86,22 @@ fun LoginScreen(
     // React to LoginViewModel State changes (Handles both Email/Pass and Google linking results)
     LaunchedEffect(loginState) {
         when (val state = loginState) {
-            // This state is now set AFTER successful save/link for BOTH methods
             is LoginUiState.LoginVerifiedSuccess -> {
-//                Toast.makeText(context, "Login Successful!", Toast.LENGTH_SHORT).show()
-                onLoginSuccess() // Trigger navigation passed from AppNavigation
-                loginViewModel.resetState() // Reset state after handling
+                onLoginSuccess()
+                loginViewModel.resetState()
             }
             is LoginUiState.VerificationNeeded -> {
                 Toast.makeText(context, "Please verify your email.", Toast.LENGTH_SHORT).show()
-                onNavigateToVerify(state.email) // Navigate to verification screen
-                loginViewModel.resetState() // Reset state after handling
+                onNavigateToVerify(state.email)
+                loginViewModel.resetState()
             }
             is LoginUiState.Error -> {
-                // Error display is handled below, but log it here too
                 println("LoginScreen observed LoginViewModel Error: ${state.message}")
             }
             else -> {}
         }
     }
+
 
     // --- UI Definition ---
     Scaffold(
@@ -106,36 +109,43 @@ fun LoginScreen(
             TopAppBar(title = { Text("On The Way Login") })
         }
     ) { paddingValues ->
+        // *** Make Column scrollable and adjust arrangement ***
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .padding(horizontal = 24.dp, vertical = 16.dp) // Keep padding
+                .verticalScroll(rememberScrollState()) // <<<--- ADD SCROLLING
                 .imePadding(),
-            verticalArrangement = Arrangement.Center,
+            // verticalArrangement = Arrangement.Center, // <<<--- REMOVE OR CHANGE THIS
+            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically), // <<<--- Example: Add spacing, keep vertical centering
+            // OR Arrangement.spacedBy(8.dp) // Just add spacing, align top
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
+            // --- Add Spacer at the top if not using CenterVertically arrangement ---
+            // if(verticalArrangement != Arrangement.Center) {
+            //    Spacer(modifier = Modifier.height(32.dp)) // Add space at the top
+            // }
+
             Text("Login or Register", style = MaterialTheme.typography.headlineMedium)
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(24.dp)) // Keep spacing
 
             // --- Error Display Area ---
-            // Now primarily displays errors from LoginViewModel
             val displayError = if (loginState is LoginUiState.Error) {
                 (loginState as LoginUiState.Error).message
             } else {
-                // Optionally show Google error if LoginViewModel is not in error state
-                // googleAuthState.error
-                null // Keep it simple, show only LoginViewModel errors for now
+                null
             }
 
-            displayError?.let {
+            // Use AnimatedVisibility or similar for smoother error appearance/disappearance
+            if (displayError != null) {
                 Text(
-                    text = it,
+                    text = displayError,
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    modifier = Modifier.padding(bottom = 8.dp) // Reduced bottom padding
                 )
             }
 
@@ -150,7 +160,7 @@ fun LoginScreen(
                 enabled = !isLoading,
                 isError = loginState is LoginUiState.Error
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            // Spacer removed, using Arrangement.spacedBy
 
             // Password Field
             OutlinedTextField(
@@ -171,24 +181,23 @@ fun LoginScreen(
                 enabled = !isLoading,
                 isError = loginState is LoginUiState.Error
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            // Spacer removed
 
             // Login with Email Button
             Button(
                 onClick = {
-                    loginViewModel.signInUser(email, password) // ViewModel handles validation now
+                    loginViewModel.signInUser(email, password)
                 },
                 enabled = !isLoading,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // Show loading based on LoginViewModel state
                 if (loginState is LoginUiState.Loading) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
                 } else {
                     Text("Login with Email")
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            // Spacer removed
 
             // Register Account Text Button
             TextButton(
@@ -199,9 +208,9 @@ fun LoginScreen(
                 Text("Register Account")
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp)) // Adjusted spacing
             Text("OR", style = MaterialTheme.typography.bodyMedium)
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp)) // Adjusted spacing
 
             // Google Login Button
             Button(
@@ -213,12 +222,11 @@ fun LoginScreen(
                         authLauncher.launch(authIntent)
                     } catch (e: Exception) {
                         Toast.makeText(context, "Could not launch Google Sign-In.", Toast.LENGTH_SHORT).show()
-                        authViewModel.logout() // Reset AuthViewModel state on launch error
-                        loginViewModel.resetState() // Reset LoginViewModel state too
+                        authViewModel.logout()
+                        loginViewModel.resetState()
                         println("Error launching auth intent: ${e.message}")
                     }
                 },
-                // Disable if either AuthViewModel or LoginViewModel is loading
                 enabled = !isLoading,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -228,6 +236,12 @@ fun LoginScreen(
                     Text("Log In with Google")
                 }
             }
+
+            // --- Add Spacer at the bottom if not using CenterVertically arrangement ---
+            // if(verticalArrangement != Arrangement.Center) {
+            //    Spacer(modifier = Modifier.height(32.dp)) // Add space at the bottom
+            // }
+
         } // End Column
     } // End Scaffold
 }

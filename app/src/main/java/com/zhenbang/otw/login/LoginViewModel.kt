@@ -8,10 +8,6 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser // Import FirebaseUser
 import com.zhenbang.otw.data.AuthRepository
 import com.zhenbang.otw.data.FirebaseAuthRepository // Assuming direct instantiation
-import com.zhenbang.otw.login.LoginUiState
-// Make sure LoginUiState is imported correctly if in another file
-// If it's defined below, this import might not be needed or should match the package
-// import com.zhenbang.otw.login.LoginUiState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch

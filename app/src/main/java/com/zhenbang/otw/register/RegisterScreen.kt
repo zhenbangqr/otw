@@ -21,6 +21,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 // Removed kotlinx.coroutines.delay as it's not used here anymore
 import android.util.Patterns
 import android.widget.Toast // Import Toast for simple feedback
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,21 +58,18 @@ fun RegisterScreen(
         when (val state = uiState) {
             is RegisterUiState.Error -> {
                 generalError = state.message
-                // Optionally clear error later or on input change
             }
-            // *** CHANGED: Navigate to Verify Screen on Success ***
             is RegisterUiState.AccountCreatedPendingVerification -> {
                 println("Account Created! Navigating to Verification Screen...")
                 Toast.makeText(context, "Account created! Check your email for verification link.", Toast.LENGTH_LONG).show()
-                // Navigate to verification screen, passing the email used
-                onNavigateToVerify(email) // Use the new callback
-                registerViewModel.resetState() // Reset VM state after handling
+                onNavigateToVerify(email)
+                registerViewModel.resetState()
             }
             is RegisterUiState.Idle -> {
-                generalError = null // Clear error on returning to Idle
+                generalError = null
             }
             is RegisterUiState.Registering -> {
-                generalError = null // Clear error when starting registration
+                generalError = null
             }
         }
     }
@@ -110,7 +109,6 @@ fun RegisterScreen(
         return isValid
     }
 
-    // --- UI Definition (Mostly unchanged, looks good) ---
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("Create Account") })
@@ -121,8 +119,9 @@ fun RegisterScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(horizontal = 24.dp, vertical = 16.dp)
-                .imePadding(), // Handles keyboard overlap
-            verticalArrangement = Arrangement.spacedBy(12.dp), // Increased spacing a bit
+                .verticalScroll(rememberScrollState())
+                .imePadding(),
+//            verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
@@ -152,6 +151,7 @@ fun RegisterScreen(
                 supportingText = { emailError?.let { Text(it) } },
                 readOnly = isLoading
             )
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Password Field
             OutlinedTextField(
@@ -172,6 +172,7 @@ fun RegisterScreen(
                 supportingText = { passwordError?.let { Text(it, modifier=Modifier.fillMaxWidth()) } },
                 readOnly = isLoading
             )
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Confirm Password Field
             OutlinedTextField(
@@ -193,9 +194,8 @@ fun RegisterScreen(
                 readOnly = isLoading
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // Register Button
             Button(
                 onClick = {
                     generalError = null
@@ -220,12 +220,14 @@ fun RegisterScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Link to Login Screen
             TextButton(onClick = onNavigateToLogin, enabled = !isLoading) {
                 Text("Already have an account? Login")
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
