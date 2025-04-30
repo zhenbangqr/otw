@@ -3,10 +3,7 @@ package com.zhenbang.otw.data
 import com.google.firebase.auth.FirebaseUser
 import android.net.Uri
 
-// Interface defining all authentication operations needed by ViewModels
 interface AuthRepository {
-
-    // --- Existing Auth Methods ---
     suspend fun createUserAndSendVerificationLink(email: String, password: String): Result<Unit>
     suspend fun signInWithEmailAndPassword(email: String, password: String): Result<Unit>
     suspend fun checkCurrentUserVerificationStatus(): Result<Boolean>

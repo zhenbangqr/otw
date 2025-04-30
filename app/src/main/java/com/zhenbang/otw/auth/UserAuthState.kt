@@ -2,14 +2,10 @@ package com.zhenbang.otw.auth
 
 import net.openid.appauth.TokenResponse
 
-// Or your state package
-
-// Optional: Define a simple data class for parsed user info
 data class GoogleUserInfo(
     val email: String?,
     val displayName: String?,
     val pictureUrl: String?
-    // Add other fields you might get from the ID token if needed
 )
 
 data class UserAuthState(

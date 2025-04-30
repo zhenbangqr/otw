@@ -12,25 +12,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext // Import LocalContext
-
-// Lifecycle & ViewModel Imports
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-
-// Navigation Imports
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
-
-// Firebase Imports
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
-
-// Your Project's Screen & ViewModel Imports
-import com.zhenbang.otw.auth.* // Includes AuthViewModel
+import com.zhenbang.otw.auth.*
 import com.zhenbang.otw.enterSelfDetails.EnterSelfDetailsScreen
 import com.zhenbang.otw.enterSelfDetails.EnterSelfDetailsViewModel
 import com.zhenbang.otw.emailVerification.VerificationScreen
@@ -39,20 +31,17 @@ import com.zhenbang.otw.login.LoginScreen
 import com.zhenbang.otw.login.LoginViewModel
 import com.zhenbang.otw.profile.ProfileStatus
 import com.zhenbang.otw.profile.ProfileViewModel
-import com.zhenbang.otw.profile.ProfileScreen // Import ProfileScreen
+import com.zhenbang.otw.profile.ProfileScreen
 import com.zhenbang.otw.register.RegisterScreen
 import com.zhenbang.otw.register.RegisterViewModel
 import com.zhenbang.otw.mainPage.MainPageScreen
-
-// Department Feature Imports
 import com.zhenbang.otw.departments.DepartmentDetailsScreen
 import com.zhenbang.otw.departments.DepartmentListScreen
-// DepartmentViewModel is initialized within its screens
 import com.zhenbang.otw.tasks.AddEditTaskScreen
 import com.zhenbang.otw.tasks.TaskDetailScreen
-import com.zhenbang.otw.tasks.TaskViewModel // Needed for factory
+import com.zhenbang.otw.tasks.TaskViewModel
 import com.zhenbang.otw.issues.AddEditIssueScreen
-import com.zhenbang.otw.issues.IssueViewModel // Needed for factory
+import com.zhenbang.otw.issues.IssueViewModel
 
 
 // --- Unified Destinations ---
@@ -78,7 +67,6 @@ object AppDestinations {
     const val ADD_EDIT_ISSUE_ROUTE = "add_edit_issue/{$DEPARTMENT_ID_ARG}/{$ISSUE_ID_ARG}"
 }
 
-// Auth State Enum (as provided by you)
 private enum class ResolvedAuthState {
     LOADING,
     LOGGED_OUT,
@@ -110,18 +98,15 @@ fun AppNavigation() {
     val performLogout: () -> Unit = {
         Log.d("AppNavigation", ">>> performLogout called <<<")
         authViewModel.logout()
-        FirebaseAuth.getInstance().signOut() // Ensure Firebase sign out
-        // Navigate immediately to prevent showing authenticated screens briefly
+        FirebaseAuth.getInstance().signOut()
         navController.navigate(AppDestinations.LOGIN_ROUTE) {
             popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
             launchSingleTop = true
         }
     }
-    // -----------------------------
 
     // --- Listener for Firebase Auth Changes ---
     DisposableEffect(key1 = firebaseAuth) {
-        // ... (Your existing AuthStateListener logic - unchanged) ...
         val authListener = FirebaseAuth.AuthStateListener { auth ->
             val newUser = auth.currentUser
             Log.d("AppNavigation", ">>> AuthStateListener fired. New User: ${newUser?.uid} <<<")
@@ -141,9 +126,8 @@ fun AppNavigation() {
         }
         Log.d("AppNavigation", "Adding AuthStateListener")
         firebaseAuth.addAuthStateListener(authListener)
-        // Initial fetch if already logged in
         firebaseAuth.currentUser?.uid?.let {
-            if (profileState.profileStatus == ProfileStatus.LOGGED_OUT) { // Fetch only if profile isn't loaded/loading
+            if (profileState.profileStatus == ProfileStatus.LOGGED_OUT) {
                 Log.d("AppNavigation", "Initial fetch for already logged in user: $it")
                 profileViewModel.fetchUserProfile(it)
             }
@@ -154,11 +138,9 @@ fun AppNavigation() {
         }
     }
 
-    // --- Determine Resolved Auth State ---
     val resolvedAuthState: ResolvedAuthState = remember(
         firebaseStateInitialized, firebaseUser, googleAuthState.isAuthorized, profileState.profileStatus
     ) {
-        // ... (Your existing ResolvedAuthState calculation logic - unchanged) ...
         val currentUser = firebaseUser
         val isGoogleLoggedIn = googleAuthState.isAuthorized
         val isFirebaseVerified = currentUser?.isEmailVerified == true
@@ -167,7 +149,6 @@ fun AppNavigation() {
         Log.d("AppNavigation", ">>> Calculating State: Initialized=$firebaseStateInitialized, User=${currentUser?.uid}, isFirebaseVerified=$isFirebaseVerified, GoogleAuth=${isGoogleLoggedIn}, ProfileStatus=$profileStatus <<<")
 
         when {
-            // User is authenticated (Google OR verified Email)
             isGoogleLoggedIn || (currentUser != null && isFirebaseVerified) -> {
                 when (profileStatus) {
                     ProfileStatus.LOADING -> ResolvedAuthState.LOADING // Still loading profile
@@ -176,15 +157,11 @@ fun AppNavigation() {
                         if (isGoogleLoggedIn) ResolvedAuthState.READY_FOR_MAIN_PAGE_GOOGLE
                         else ResolvedAuthState.READY_FOR_MAIN_PAGE_EMAIL
                     }
-                    // If profile state is logged out but user is somehow authenticated, treat as logged out for safety
                     ProfileStatus.LOGGED_OUT -> ResolvedAuthState.LOGGED_OUT
                 }
             }
-            // Waiting for Firebase init
             !firebaseStateInitialized -> ResolvedAuthState.LOADING
-            // Firebase user exists but email not verified
             currentUser != null && !isFirebaseVerified -> ResolvedAuthState.NEEDS_VERIFICATION
-            // Default case: Logged out
             else -> ResolvedAuthState.LOGGED_OUT
         }
     }
@@ -192,7 +169,6 @@ fun AppNavigation() {
         Log.d("AppNavigation", ">>> Resolved Auth State Updated To: $resolvedAuthState <<<")
     }
 
-    // --- Navigation Logic based on Resolved State ---
     LaunchedEffect(resolvedAuthState, navController) {
         val currentRoute = navController.currentBackStackEntry?.destination?.route
         Log.d("AppNavigation", ">>> NAVIGATION EFFECT RUNNING. State: $resolvedAuthState. Current Route: $currentRoute <<<")
@@ -208,7 +184,7 @@ fun AppNavigation() {
         )
 
         val targetRoute: String? = when (resolvedAuthState) {
-            ResolvedAuthState.LOADING -> null // Stay put while loading
+            ResolvedAuthState.LOADING -> null
             ResolvedAuthState.READY_FOR_MAIN_PAGE_GOOGLE, ResolvedAuthState.READY_FOR_MAIN_PAGE_EMAIL -> AppDestinations.MAIN_PAGE_ROUTE
             ResolvedAuthState.NEEDS_PROFILE_DETAILS -> AppDestinations.ENTER_SELF_DETAILS_ROUTE
             ResolvedAuthState.NEEDS_VERIFICATION -> {
@@ -220,15 +196,10 @@ fun AppNavigation() {
         }
 
         if (targetRoute != null) {
-
-            // *** ADD THIS CHECK ***
-            // Prevent navigating away from Register back to Login just due to state recalculation on rotation/recomposition
             if (currentRoute == AppDestinations.REGISTER_ROUTE && targetRoute == AppDestinations.LOGIN_ROUTE) {
                 Log.i("AppNavigation", "Preventing navigation from Register to Login during state recalc.")
-                // Do nothing, stay on the Register screen
             }
-            // *** END ADDED CHECK ***
-            else { // Original navigation logic wrapped in an else block
+            else {
 
                 val isVerificationTarget = targetRoute.startsWith(AppDestinations.VERIFICATION_ROUTE.substringBefore('{'))
                 val isVerificationCurrent = currentRoute?.startsWith(AppDestinations.VERIFICATION_ROUTE.substringBefore('{')) == true
@@ -244,7 +215,6 @@ fun AppNavigation() {
 
 
                 if (shouldNavigate) {
-                    // Construct final target route (handling verification email encoding)
                     val finalTargetRoute = if (targetRoute.startsWith(AppDestinations.VERIFICATION_ROUTE.substringBefore('{'))) {
                         val userEmail = firebaseUser?.email
                         if (userEmail != null) "${AppDestinations.VERIFICATION_ROUTE.substringBefore('{')}${Uri.encode(userEmail)}"
@@ -262,19 +232,16 @@ fun AppNavigation() {
                 } else {
                     Log.i("AppNavigation", "Already on target route ($currentRoute) or navigation blocked for state $resolvedAuthState.")
                 }
-            } // End of else block for original navigation logic
+            }
 
         } else {
             Log.i("AppNavigation", "Navigation target is null (likely LOADING state).")
         }
     }
-    // --- End Navigation Logic ---
 
-
-    // --- Render NavHost with ALL Screens ---
     NavHost(
         navController = navController,
-        startDestination = AppDestinations.LOADING_ROUTE // Start at Loading, effect will navigate
+        startDestination = AppDestinations.LOADING_ROUTE
     ) {
         // --- Loading Screen ---
         composable(route = AppDestinations.LOADING_ROUTE) {
@@ -473,7 +440,5 @@ fun AppNavigation() {
                 issueId = issueId
             )
         }
-        // --- *** End Department Feature Screens *** ---
-
     } // End NavHost
 } // End AppNavigation

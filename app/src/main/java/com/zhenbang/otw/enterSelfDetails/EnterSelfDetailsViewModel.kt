@@ -14,14 +14,11 @@ import kotlinx.coroutines.flow.update // Use update for cleaner state modificati
 import kotlinx.coroutines.launch
 import java.util.Calendar // For Date Picker default
 
-// UI State for the Self Details Screen - Updated Fields
-
-
 class EnterSelfDetailsViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val authRepository: AuthRepository = FirebaseAuthRepository() // Use DI ideally
+    private val authRepository: AuthRepository = FirebaseAuthRepository()
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
-    private val TAG = "EnterSelfDetailsVM" // Shortened Tag
+    private val TAG = "EnterSelfDetailsVM"
 
     private val _uiState = MutableStateFlow(SelfDetailsUiState())
     val uiState = _uiState.asStateFlow()
@@ -79,7 +76,6 @@ class EnterSelfDetailsViewModel(application: Application) : AndroidViewModel(app
             _uiState.update { it.copy(errorMessage = "Phone Number cannot be empty.") }
             return
         }
-        // Basic phone format check (adjust regex if needed for specific formats)
         if (!android.util.Patterns.PHONE.matcher(currentState.phoneNumber).matches()) {
             _uiState.update { it.copy(errorMessage = "Invalid phone number format.") }
             return
@@ -88,7 +84,6 @@ class EnterSelfDetailsViewModel(application: Application) : AndroidViewModel(app
             _uiState.update { it.copy(errorMessage = "Please select your birthdate.") }
             return
         }
-        // -----------------------
 
 
         if (userId == null) {

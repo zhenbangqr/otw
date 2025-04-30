@@ -49,20 +49,16 @@ import com.zhenbang.otw.profile.ProfileStatus // Import ProfileStatus
 fun ProfileScreen(
     profileViewModel: ProfileViewModel = viewModel(),
     onLogout: () -> Unit,
-    // --- Add navigation callback for back ---
     onNavigateBack: () -> Unit
-    // --------------------------------------
 ) {
     val uiState by profileViewModel.uiState.collectAsState()
     val context = LocalContext.current
 
-    // --- ActivityResultLauncher for Image Picker ---
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         profileViewModel.handleProfileImageSelection(uri)
     }
-    // ---------------------------------------------
 
     // Fetch profile when the screen is composed if not already loaded/loading
     LaunchedEffect(Unit) {
@@ -85,13 +81,11 @@ fun ProfileScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Profile") },
-                // --- Add Navigation Icon ---
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) { // Use the callback
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                // ---------------------------
                 actions = {
                     IconButton(onClick = { /* TODO: Handle More options */ }) {
                         Icon(Icons.Filled.MoreVert, contentDescription = "More options")
@@ -156,8 +150,6 @@ fun ProfileScreen(
         } // End Box
     } // End Scaffold
 }
-
-// --- Helper Composables ---
 
 @Composable
 fun ProfileHeader(
@@ -244,5 +236,3 @@ fun SettingsListItem(
     }
     Divider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.1f))
 }
-
-// --- REMOVED Placeholder R object ---

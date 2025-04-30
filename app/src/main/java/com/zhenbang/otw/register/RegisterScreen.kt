@@ -31,7 +31,6 @@ fun RegisterScreen(
     onNavigateToLogin: () -> Unit,
     onNavigateToVerify: (email: String) -> Unit
 ) {
-    // --- State Variables for UI Input ---
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var confirmPassword by rememberSaveable { mutableStateOf("") }
@@ -39,21 +38,17 @@ fun RegisterScreen(
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
     var confirmPasswordVisible by rememberSaveable { mutableStateOf(false) }
 
-    // --- State Variables for UI Validation Errors ---
     var emailError by remember { mutableStateOf<String?>(null) }
     var passwordError by remember { mutableStateOf<String?>(null) }
     var confirmPasswordError by remember { mutableStateOf<String?>(null) }
     var generalError by remember { mutableStateOf<String?>(null) }
 
-    // --- Observe State from ViewModel ---
     val uiState by registerViewModel.uiState.collectAsStateWithLifecycle()
 
-    // --- Derive UI properties from state ---
     val isLoading = uiState is RegisterUiState.Registering
 
-    val context = LocalContext.current // Get context for Toast
+    val context = LocalContext.current
 
-    // --- React to ViewModel State Changes (Side Effects) ---
     LaunchedEffect(uiState) {
         when (val state = uiState) {
             is RegisterUiState.Error -> {
@@ -74,10 +69,7 @@ fun RegisterScreen(
         }
     }
 
-
-    // --- Client-Side Validation Function (Looks good) ---
     fun validateFields(): Boolean {
-        // ... (keep your existing validation logic here, it looks correct for this flow) ...
         emailError = null
         passwordError = null
         confirmPasswordError = null
@@ -121,7 +113,6 @@ fun RegisterScreen(
                 .padding(horizontal = 24.dp, vertical = 16.dp)
                 .verticalScroll(rememberScrollState())
                 .imePadding(),
-//            verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 

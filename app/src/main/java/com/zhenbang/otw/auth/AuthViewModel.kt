@@ -1,7 +1,7 @@
 package com.zhenbang.otw.auth
 
 import android.app.Application
-import android.content.Intent // Keep import for handleAuthorizationResponse
+import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import androidx.browser.customtabs.CustomTabsIntent
@@ -19,11 +19,6 @@ import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 import net.openid.appauth.AuthorizationServiceConfiguration
 
-// --- REMOVED Flow imports if not needed elsewhere ---
-// import kotlinx.coroutines.flow.MutableSharedFlow
-// import kotlinx.coroutines.flow.asSharedFlow
-
-
 /**
  * ViewModel responsible for handling the OAuth 2.0 authentication flow using AppAuth,
  * specifically configured for Google Sign-In.
@@ -33,10 +28,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val TAG = "AuthViewModel"
     private val prefsFile = "auth_prefs_secure"
     private val authStateKey = "authStateJson"
-
-    // --- REMOVED: No longer emitting end session event ---
-    // private val _endSessionEvent = MutableSharedFlow<Intent>()
-    // val endSessionEvent = _endSessionEvent.asSharedFlow()
 
     private val sharedPreferences by lazy {
         try {
@@ -81,8 +72,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // --- Configuration Section ---
-    // !!! REPLACE with your actual Client ID and Redirect URI !!!
     private val clientId = "472466047132-0sa7cqoh4gdq2eq7lhvpl1g93553ihuv.apps.googleusercontent.com"
     private val redirectUri = Uri.parse("com.zhenbang.otw:/oauth2redirect")
     private val scope = "openid profile email"
@@ -94,8 +83,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         null, // registrationEndpoint (Optional)
         null  // *** Set endSessionEndpoint to null ***
     )
-
-    // ... (buildAuthorizationRequest, prepareAuthIntent, startAuthorization, handleAuthorizationResponse, exchangeCodeForToken, performTokenRequest remain the same) ...
 
     /** Builds the AppAuth AuthorizationRequest */
     fun buildAuthorizationRequest(): AuthorizationRequest {
@@ -184,9 +171,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 Log.d(TAG, "Token exchange successful. isAuthorized=true")
 
-                // TODO: Optional: Trigger Firebase Linking here
-                // linkFirebaseAccount(authState.idToken)
-
             } catch (e: AuthorizationException) {
                 Log.e(TAG, "Token exchange failed: ${e.error} - ${e.errorDescription}", e)
                 authState.update(null as TokenResponse?, e) // Update internal state with error
@@ -266,18 +250,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         clearAuthState()
         _userAuthState.value = UserAuthState(isLoading = false) // Reset UI state
         Log.d(TAG, "Local AppAuth state cleared for logout.")
-        // --- REMOVED: No browser end session attempt ---
         Log.d(TAG, "Skipping browser end session attempt as Google's endpoint is non-standard.")
         // The onLogout lambda in AppNavigation handles Firebase sign-out.
     }
-
-    // --- REMOVED or COMMENTED OUT: No longer attempting OIDC End Session ---
-    /*
-    private fun tryEndSession(stateToUseForHint: AuthState) {
-        // ... (Original function body - no longer called) ...
-        Log.w(TAG, "tryEndSession is not used as Google's end session endpoint is non-standard.")
-    }
-    */
 
     // --- Persistence Functions (Unchanged) ---
     private fun storeAuthState(state: AuthState) {
@@ -327,8 +302,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // --- User Info Parsing (Unchanged) ---
-    // WARNING: Basic parsing only. Use a JWT library for production.
     private fun parseIdToken(idToken: String?): GoogleUserInfo? {
         if (idToken == null) return null
         return try {
@@ -358,22 +331,3 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         authService.dispose()
     }
 }
-
-// Ensure UserAuthState.kt and GoogleUserInfo are defined correctly
-/* Example:
-package com.zhenbang.otw.auth
-
-data class GoogleUserInfo(
-    val email: String?,
-    val displayName: String?,
-    val pictureUrl: String?
-)
-
-data class UserAuthState(
-    val isAuthorized: Boolean = false,
-    val isLoading: Boolean = false,
-    val error: String? = null,
-    val userInfo: GoogleUserInfo? = null,
-    val idToken: String? = null // Keep ID token if needed elsewhere
-)
-*/

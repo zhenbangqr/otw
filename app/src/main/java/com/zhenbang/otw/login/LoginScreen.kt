@@ -40,17 +40,14 @@ fun LoginScreen(
     onLoginSuccess: () -> Unit,
     onNavigateToVerify: (email: String) -> Unit
 ) {
-    // --- State from ViewModels ---
     val googleAuthState by authViewModel.userAuthState.collectAsStateWithLifecycle()
     val loginState by loginViewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    // --- Input State ---
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
 
-    // --- Derived State ---
     val isLoading = loginState is LoginUiState.Loading || googleAuthState.isLoading
 
     // --- ActivityResult Launcher for AppAuth Authorization ---
@@ -109,27 +106,18 @@ fun LoginScreen(
             TopAppBar(title = { Text("On The Way Login") })
         }
     ) { paddingValues ->
-        // *** Make Column scrollable and adjust arrangement ***
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 24.dp, vertical = 16.dp) // Keep padding
-                .verticalScroll(rememberScrollState()) // <<<--- ADD SCROLLING
+                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .verticalScroll(rememberScrollState())
                 .imePadding(),
-            // verticalArrangement = Arrangement.Center, // <<<--- REMOVE OR CHANGE THIS
-            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically), // <<<--- Example: Add spacing, keep vertical centering
-            // OR Arrangement.spacedBy(8.dp) // Just add spacing, align top
+            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-
-            // --- Add Spacer at the top if not using CenterVertically arrangement ---
-            // if(verticalArrangement != Arrangement.Center) {
-            //    Spacer(modifier = Modifier.height(32.dp)) // Add space at the top
-            // }
-
             Text("Login or Register", style = MaterialTheme.typography.headlineMedium)
-            Spacer(modifier = Modifier.height(24.dp)) // Keep spacing
+            Spacer(modifier = Modifier.height(24.dp))
 
             // --- Error Display Area ---
             val displayError = if (loginState is LoginUiState.Error) {
@@ -145,7 +133,7 @@ fun LoginScreen(
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(bottom = 8.dp) // Reduced bottom padding
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
             }
 
@@ -160,7 +148,6 @@ fun LoginScreen(
                 enabled = !isLoading,
                 isError = loginState is LoginUiState.Error
             )
-            // Spacer removed, using Arrangement.spacedBy
 
             // Password Field
             OutlinedTextField(
@@ -181,7 +168,6 @@ fun LoginScreen(
                 enabled = !isLoading,
                 isError = loginState is LoginUiState.Error
             )
-            // Spacer removed
 
             // Login with Email Button
             Button(
@@ -197,7 +183,6 @@ fun LoginScreen(
                     Text("Login with Email")
                 }
             }
-            // Spacer removed
 
             // Register Account Text Button
             TextButton(
@@ -236,12 +221,6 @@ fun LoginScreen(
                     Text("Log In with Google")
                 }
             }
-
-            // --- Add Spacer at the bottom if not using CenterVertically arrangement ---
-            // if(verticalArrangement != Arrangement.Center) {
-            //    Spacer(modifier = Modifier.height(32.dp)) // Add space at the bottom
-            // }
-
         } // End Column
     } // End Scaffold
 }

@@ -1,4 +1,4 @@
-package com.zhenbang.otw.issues // Or wherever you placed IssueViewModel
+package com.zhenbang.otw.issues
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -22,25 +22,21 @@ import com.zhenbang.otw.database.Issue // Import your Issue entity
 fun AddEditIssueScreen(
     navController: NavController,
     departmentId: Int,
-    issueViewModel: IssueViewModel, // Pass the IssueViewModel
-    issueId: Int // -1 for new issue, otherwise ID of issue to edit
+    issueViewModel: IssueViewModel,
+    issueId: Int
 ) {
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    // Observe the issue to edit based on issueId
-    // Use derivedStateOf to prevent potential recomposition loops if issueToEdit changes reference but not content
     val issueToEditState by issueViewModel.getIssueById(issueId).collectAsState(initial = null)
     val issueToEdit = remember(issueToEditState) { issueToEditState }
 
 
     // Pre-fill fields if editing an existing issue
     LaunchedEffect(issueToEdit) {
-        // Only pre-fill if issueToEdit is not null and issueId indicates editing
         if (issueToEdit != null && issueId != -1) {
             title = issueToEdit.issueTitle
             description = issueToEdit.issueDescription
         } else {
-            // Reset fields if navigating back to 'Add New' from 'Edit' or if issue data is cleared
             title = ""
             description = ""
         }
@@ -51,7 +47,7 @@ fun AddEditIssueScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 36.dp) // Adjust padding as needed
+                    .padding(top = 36.dp)
                     .padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -69,7 +65,7 @@ fun AddEditIssueScreen(
                     IconButton(onClick = {
                         issueToEdit?.let { issueToDelete ->
                             issueViewModel.deleteIssue(issueToDelete)
-                            navController.popBackStack() // Go back after delete
+                            navController.popBackStack()
                         }
                     }) {
                         Icon(Icons.Filled.Delete, contentDescription = "Delete Issue", tint = Color.Red)
@@ -79,22 +75,19 @@ fun AddEditIssueScreen(
         },
         floatingActionButton = {
             FloatingActionButton(onClick = {
-                if (title.isNotBlank()) { // Description can be optional, adjust if needed
+                if (title.isNotBlank()) {
                     val currentTimestamp = System.currentTimeMillis()
                     val issue = Issue(
-                        // If editing, use the existing issueId, otherwise 0 for Room to generate
                         issueId = if (issueId != -1) issueId else 0,
                         departmentId = departmentId,
                         issueTitle = title,
                         issueDescription = description,
-                        // Let ViewModel handle timestamp logic during upsert
-                        // Provide existing timestamp for comparison if editing
+
                         creationTimestamp = issueToEdit?.creationTimestamp ?: currentTimestamp
                     )
-                    issueViewModel.upsertIssue(issue) // Use the upsert method
-                    navController.popBackStack() // Go back after saving
+                    issueViewModel.upsertIssue(issue)
+                    navController.popBackStack()
                 }
-                // Optional: Add user feedback (e.g., Toast/Snackbar) if fields are blank
             }) {
                 Icon(Icons.Filled.Check, contentDescription = "Save Issue")
             }
@@ -106,11 +99,9 @@ fun AddEditIssueScreen(
                     .fillMaxSize()
                     .padding(16.dp),
             ) {
-                // Style similar to AddEditTaskScreen
                 val textFieldColors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color.Transparent,
                     unfocusedBorderColor = Color.Transparent,
-                    // Add other color customizations if needed
                 )
 
                 OutlinedTextField(
@@ -123,10 +114,10 @@ fun AddEditIssueScreen(
                         fontSize = 28.sp
                     ),
                     colors = textFieldColors,
-                    maxLines = 3 // Example: Limit title lines
+                    maxLines = 3
                 )
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp)) // Separator
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                 OutlinedTextField(
                     value = description,
@@ -134,7 +125,7 @@ fun AddEditIssueScreen(
                     placeholder = { Text("Describe the issue...", fontSize = 18.sp) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f), // Allow description to take remaining space
+                        .weight(1f),
                     textStyle = TextStyle(
                         fontSize = 18.sp
                     ),

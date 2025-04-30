@@ -1,6 +1,6 @@
 package com.zhenbang.otw.data
 
-import android.net.Uri // Import Uri
+import android.net.Uri
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
@@ -9,28 +9,24 @@ import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
-import com.google.firebase.firestore.SetOptions // Import SetOptions
+import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.ktx.firestore
-import com.google.firebase.firestore.ktx.toObject // Import toObject extension
+import com.google.firebase.firestore.ktx.toObject
 import com.google.firebase.ktx.Firebase
-// --- Add Storage Imports ---
 import com.google.firebase.storage.ktx.storage
-// ---------------------------
 import kotlinx.coroutines.tasks.await
 import java.lang.Exception
 import java.lang.IllegalArgumentException
 import java.lang.IllegalStateException
-import java.util.UUID // Import UUID for unique filenames
+import java.util.UUID
 
 class FirebaseAuthRepository : AuthRepository {
 
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
     private val db = Firebase.firestore
-    private val storage = Firebase.storage // Storage instance
+    private val storage = Firebase.storage
     private val usersCollection = db.collection("users")
     private val TAG = "FirebaseAuthRepository"
-
-    // ... (createUserAndSendVerificationLink, signInWithEmailAndPassword, checkCurrentUserVerificationStatus, resendVerificationLink, linkGoogleCredentialToFirebase, getUserProfile, updateUserProfile, uploadProfileImage remain the same) ...
 
     /**
      * Saves basic user information (like email) to the database after verification.
@@ -43,11 +39,11 @@ class FirebaseAuthRepository : AuthRepository {
                 "email" to email,
                 "uid" to userId,
                 "createdAt" to com.google.firebase.Timestamp.now(),
-                "profileImageUrl" to null // Explicitly set to null for email users initially
+                "profileImageUrl" to null
             )
 
             usersCollection.document(userId)
-                .set(userProfile, SetOptions.merge()) // Use set with merge
+                .set(userProfile, SetOptions.merge())
                 .await()
 
             Log.d(TAG, "User data saved successfully for $userId")
@@ -65,8 +61,6 @@ class FirebaseAuthRepository : AuthRepository {
     override suspend fun saveOrUpdateUserLoginInfo(user: FirebaseUser): Result<Unit> {
         val userId = user.uid
         val userEmail = user.email
-        // *** REMOVED photoUrl fetching ***
-        // val photoUrl = user.photoUrl?.toString()
 
         if (userEmail == null) {
             Log.w(TAG, "Cannot save user info: email is null for user $userId")
@@ -75,12 +69,10 @@ class FirebaseAuthRepository : AuthRepository {
 
         Log.d(TAG, "Preparing to save/update login info for $userId")
         return try {
-            // Only update essential login info now
             val userLoginInfo = mapOf<String, Any?>(
                 "email" to userEmail,
                 "uid" to userId,
                 "lastLoginAt" to com.google.firebase.Timestamp.now()
-                // *** REMOVED profileImageUrl from here ***
             )
             Log.d(TAG, "Data to save/merge (login info only): $userLoginInfo")
 
@@ -88,7 +80,7 @@ class FirebaseAuthRepository : AuthRepository {
             Log.d(TAG, "Obtained DocumentReference: ${docRef.path}")
 
             Log.d(TAG, "Executing Firestore set(merge) operation for login info...")
-            docRef.set(userLoginInfo, SetOptions.merge()).await() // Use set with merge
+            docRef.set(userLoginInfo, SetOptions.merge()).await()
             Log.d(TAG, "Firestore set(merge) for login info completed successfully for $userId")
 
             Result.success(Unit)
@@ -114,7 +106,6 @@ class FirebaseAuthRepository : AuthRepository {
                 Log.d(TAG, "User created successfully: ${user.uid}. Sending verification email.")
                 user.sendEmailVerification().await()
                 Log.d(TAG, "Verification email sent to: $email")
-                // NOTE: User remains logged in, but unverified.
                 Result.success(Unit)
             }
         } catch (e: FirebaseAuthUserCollisionException) {
@@ -159,7 +150,7 @@ class FirebaseAuthRepository : AuthRepository {
             val user = firebaseAuth.currentUser
             if (user == null) {
                 Log.d(TAG, "checkCurrentUserVerificationStatus: No user signed in.")
-                return Result.success(false) // No user means not verified
+                return Result.success(false)
             }
             Log.d(TAG, "checkCurrentUserVerificationStatus: Reloading user ${user.uid}")
             user.reload().await() // Reload to get latest status from Firebase backend
@@ -247,7 +238,7 @@ class FirebaseAuthRepository : AuthRepository {
         return try {
             Log.d(TAG, "Attempting to update profile for $userId with data: $profileUpdates")
             usersCollection.document(userId)
-                .set(profileUpdates, SetOptions.merge()) // Use set with merge
+                .set(profileUpdates, SetOptions.merge())
                 .await()
 
             Log.d(TAG, "User profile created/updated successfully for $userId")

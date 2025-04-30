@@ -116,98 +116,6 @@ sealed class Screen(val route: String) {
     // }
 }
 
-//@Composable
-//fun DepartmentNavigation() {
-//    val navController = rememberNavController()
-//    NavHost(navController = navController, startDestination = Screen.DepartmentList.route) {
-//        composable(Screen.DepartmentList.route) {
-//            DepartmentListScreen(navController = navController)
-//        }
-//        composable(
-//            route = Screen.DepartmentDetails.route,
-//            arguments = listOf(
-//                navArgument("departmentId") { type = NavType.IntType },
-//                navArgument("departmentName") { type = NavType.StringType }
-//            )
-//        ) { backStackEntry ->
-//            val departmentId = backStackEntry.arguments?.getInt("departmentId") ?: 0
-//            val departmentName =
-//                backStackEntry.arguments?.getString("departmentName")?.replace("%2F", "/")
-//                    ?: "" // decode slashes
-//            DepartmentDetailsScreen(
-//                navController = navController,
-//                departmentId = departmentId,
-//                departmentName = departmentName,
-//            )
-//        }
-//        composable(
-//            route = Screen.TaskDetail.route,
-//            arguments = listOf(navArgument("taskId") { type = NavType.IntType })
-//        ) { backStackEntry ->
-//            val taskId = backStackEntry.arguments?.getInt("taskId") ?: 0
-//            val context = LocalContext.current
-//            val taskViewModel: TaskViewModel = viewModel(factory = TaskViewModel.Factory(context))
-//            TaskDetailScreen(
-//                navController = navController,
-//                taskViewModel = taskViewModel,
-//                taskId = taskId
-//            )
-//        }
-//        composable(
-//            route = Screen.AddEditTask.route,
-//            arguments = listOf(
-//                navArgument("departmentId") { type = NavType.IntType },
-//                navArgument("taskId") { type = NavType.IntType })
-//        ) { backStackEntry ->
-//            val departmentId = backStackEntry.arguments?.getInt("departmentId") ?: 0
-//            val taskId = backStackEntry.arguments?.getInt("taskId") ?: -1
-//            val context = LocalContext.current
-//            val taskViewModel: TaskViewModel = viewModel(factory = TaskViewModel.Factory(context))
-//            AddEditTaskScreen(
-//                navController = navController,
-//                departmentId = departmentId,
-//                taskViewModel = taskViewModel,
-//                taskId = taskId
-//            )
-//        }
-//
-//        // *** Add composable for AddEditIssueScreen ***
-//        composable(
-//            route = Screen.AddEditIssue.route,
-//            arguments = listOf(
-//                navArgument("departmentId") { type = NavType.IntType },
-//                navArgument("issueId") { type = NavType.IntType } // Use issueId here
-//            )
-//        ) { backStackEntry ->
-//            val context = LocalContext.current
-//            val departmentId = backStackEntry.arguments?.getInt("departmentId") ?: 0
-//            val issueId = backStackEntry.arguments?.getInt("issueId") ?: -1 // Default to -1 for "add"
-//            // Initialize IssueViewModel using its Factory
-//            val issueViewModel: IssueViewModel = viewModel(factory = IssueViewModel.Factory(context))
-//
-//            // Call the AddEditIssueScreen composable
-//            AddEditIssueScreen(
-//                navController = navController,
-//                departmentId = departmentId,
-//                issueViewModel = issueViewModel,
-//                issueId = issueId
-//            )
-//        }
-//
-//        // Optional: Add composable for IssueDetailScreen if you create one
-//        /*
-//        composable(
-//            route = Screen.IssueDetail.route,
-//            arguments = listOf(navArgument("issueId") { type = NavType.IntType })
-//        ) { backStackEntry ->
-//            val issueId = backStackEntry.arguments?.getInt("issueId") ?: 0
-//            val issueViewModel: IssueViewModel = viewModel(factory = IssueViewModel.Factory(context))
-//            // IssueDetailScreen(navController = navController, issueViewModel = issueViewModel, issueId = issueId)
-//        }
-//        */
-//    }
-//}
-
 @Composable
 fun DepartmentListScreen(navController: NavController) {
     val context = LocalContext.current
@@ -301,7 +209,6 @@ fun DepartmentListScreen(navController: NavController) {
                             Text(
                                 text = department.departmentName, fontSize = 16.sp
                             )
-                            // Updated Status
                         }
                     }
                 }
@@ -343,7 +250,6 @@ fun DepartmentListScreen(navController: NavController) {
                                 fontSize = 16.sp,
                                 modifier = Modifier.padding(start = 8.dp)
                             )
-                            // Updated Status
                         }
                     }
                 }
@@ -412,7 +318,7 @@ fun DepartmentDetailsScreen(
     val tasks by taskViewModel.getTasksByDepartmentId(departmentId)
         .collectAsState(initial = emptyList())
 
-    // *** Issue ViewModel and Issues ***
+    // Issue ViewModel and Issues
     val issueViewModel: IssueViewModel = viewModel(factory = IssueViewModel.Factory(context))
     val issues by issueViewModel.getIssuesByDepartmentId(departmentId)
         .collectAsState(initial = emptyList()) // Collect issues
@@ -504,7 +410,6 @@ fun DepartmentDetailsScreen(
                     contentColor = Color.Black // Keep black text
                 )
             ) {
-                // Dynamically change button text based on selected tab
                 Text(if (selectedTab == "Issues") "Add New Issue" else "Add New Task")
             }
         }
@@ -542,26 +447,10 @@ fun DepartmentDetailsScreen(
             }
 
             Column(
-                //modifier = Modifier.padding(16.dp)
                 modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 8.dp) // Padding around tabs/list area
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
                     .fillMaxWidth()
             ) {
-//                TabbedContentSection(
-//                    issues = issues, // Pass the collected issues
-//                    tasks = tasks,
-//                    navController = navController,
-//                    currentSelectedTab = selectedTab,
-//                    onTabSelected = { newTabName ->
-//                        departmentViewModel.selectTab(newTabName)
-//                    },
-//                    departmentId = departmentId,
-//                    onTaskCompletedChanged = onTaskCompleted,
-//                    // Pass lambdas for issue actions if needed, or let IssueList handle clicks
-//                    onNavigateToEditIssue = { issue ->
-//                        navController.navigate(Screen.AddEditIssue.createRoute(departmentId, issue.issueId))
-//                    }
-//                )
                 TabbedContentSection(
                     issues = issues,
                     tasks = tasks,
@@ -663,14 +552,6 @@ fun DepartmentDetailsScreen(
 
 @Composable
 fun TabbedContentSection(
-//    issues: List<Issue>, // Add issues parameter
-//    tasks: List<Task>,
-//    navController: NavController,
-//    currentSelectedTab: String,
-//    onTabSelected: (String) -> Unit,
-//    departmentId: Int,
-//    onTaskCompletedChanged: (Task, Boolean) -> Unit,
-//    onNavigateToEditIssue: (Issue) -> Unit // Add callback for editing issues
     issues: List<Issue>,
     tasks: List<Task>,
     currentSelectedTab: String,
@@ -678,18 +559,17 @@ fun TabbedContentSection(
     departmentId: Int, // Keep needed params
     onTaskCompletedChanged: (Task, Boolean) -> Unit,
     onNavigateToEditIssue: (Issue) -> Unit,
-    onNavigateToTaskDetail: (Task) -> Unit, // Receive needed callbacks
-    onNavigateToEditTask: (Task) -> Unit, // Receive needed callbacks
-    modifier: Modifier = Modifier // *** MODIFIED *** Accept modifier
+    onNavigateToTaskDetail: (Task) -> Unit,
+    onNavigateToEditTask: (Task) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
-        // Row for Tabs (remains the same)
         Row(
             modifier = Modifier
                 .border(BorderStroke(1.dp, Color.Gray), RoundedCornerShape(50.dp)) // Thinner border
                 .height(48.dp)
                 .clip(RoundedCornerShape(50.dp))
-                .fillMaxWidth() // Ensure it fills width
+                .fillMaxWidth()
         )
         {
             @Composable
@@ -697,7 +577,7 @@ fun TabbedContentSection(
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .weight(1f) // *** MODIFIED ***: Make Box take remaining vertical space
+                        .weight(1f)
                         .background(if (isSelected) Color.LightGray.copy(alpha = 0.5f) else Color.Transparent)
                         .clickable(onClick = onClick)
                         .padding(horizontal = 16.dp),
@@ -732,80 +612,16 @@ fun TabbedContentSection(
                 "Issues" -> IssueList(
                     issues = issues,
                     onNavigateToEdit = onNavigateToEditIssue,
-                    // Pass modifier to allow filling the Box
-//                    modifier = Modifier.fillMaxSize() // *** MODIFIED ***
+
                 )
                 "Tasks" -> TaskList(
                     tasks = tasks,
                     onNavigateToDetail = onNavigateToTaskDetail, // Use passed callback
                     onEditTask = onNavigateToEditTask,         // Use passed callback
                     onTaskCompletedChanged = onTaskCompletedChanged,
-                    // Pass modifier to allow filling the Box
-//                    modifier = Modifier.fillMaxSize() // *** MODIFIED ***
                 )
             }
         }
-//        {
-//            // Tab Button Composable Refactor (Optional but cleaner)
-//            @Composable
-//            fun TabButton(text: String, isSelected: Boolean, onClick: () -> Unit) {
-//                Box(
-//                    modifier = Modifier
-//                        .weight(1f)
-//                        .fillMaxHeight()
-//                        .background(if (isSelected) Color.LightGray.copy(alpha = 0.5f) else Color.Transparent)
-//                        .clickable(onClick = onClick)
-//                        .padding(horizontal = 16.dp),
-//                    contentAlignment = Alignment.Center
-//                ) {
-//                    Row(verticalAlignment = Alignment.CenterVertically) {
-//                        if (isSelected) {
-//                            Icon(
-//                                imageVector = Icons.Default.Check,
-//                                contentDescription = "Selected",
-//                                tint = Color.Black,
-//                                modifier = Modifier.size(18.dp) // Smaller check
-//                            )
-//                            Spacer(modifier = Modifier.width(4.dp))
-//                        }
-//                        Text(text, style = MaterialTheme.typography.bodyMedium) // Use theme typography
-//                    }
-//                }
-//            }
-//
-//            TabButton(
-//                text = "Issues",
-//                isSelected = currentSelectedTab == "Issues",
-//                onClick = { onTabSelected("Issues") }
-//            )
-//            TabButton(
-//                text = "Tasks",
-//                isSelected = currentSelectedTab == "Tasks",
-//                onClick = { onTabSelected("Tasks") }
-//            )
-//        }
-
-
-//        // Content based on selected tab
-//        Box(modifier = Modifier.padding(top = 8.dp)) {
-//            when (currentSelectedTab) {
-//                // *** Update Issues tab to call IssueList ***
-//                "Issues" -> IssueList(
-//                    issues = issues,
-//                    onNavigateToEdit = onNavigateToEditIssue // Pass the navigation callback
-//                )
-//                "Tasks" -> TaskList(
-//                    tasks = tasks,
-//                    onNavigateToDetail = { task ->
-//                        navController.navigate(Screen.TaskDetail.createRoute(task.taskId))
-//                    },
-//                    onEditTask = { task ->
-//                        navController.navigate(Screen.AddEditTask.createRoute(departmentId, task.taskId))
-//                    },
-//                    onTaskCompletedChanged = onTaskCompletedChanged
-//                )
-//            }
-//        }
     }
 }
 
@@ -825,12 +641,12 @@ fun IssueList(
         )
     } else {
         Column(modifier = modifier) {
-            issues.forEach { issue -> // Use key for better performance
+            issues.forEach { issue ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(itemHeight)
-                        .clickable { onNavigateToEdit(issue) } // Click row to edit
+                        .clickable { onNavigateToEdit(issue) }
                         .padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -876,16 +692,15 @@ fun TaskList(
     onNavigateToDetail: (Task) -> Unit,
     onEditTask: (Task) -> Unit,
     onTaskCompletedChanged: (Task, Boolean) -> Unit,
-    modifier: Modifier = Modifier // *** MODIFIED *** Accept modifier
+    modifier: Modifier = Modifier
 ) {
     val itemHeight = 80.dp
     if (tasks.isEmpty()) {
-        // Display this text when there are no tasks
         Text(
-            text = "No tasks assigned yet. Tap 'Add New Task' to create one.", // <-- This message is for empty tasks
+            text = "No tasks assigned yet. Tap 'Add New Task' to create one.",
             modifier = Modifier.padding(16.dp).fillMaxWidth(),
             textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.bodyMedium // Ensure MaterialTheme is imported
+            style = MaterialTheme.typography.bodyMedium
         )
     } else {
         Column(modifier = modifier) {
@@ -957,15 +772,3 @@ fun GreetingPreview() {
         )
     }
 }
-
-/*
-@Preview(showBackground = true)
-@Composable
-fun GreetingaPreview() {
-    OnTheWayTheme {
-        DepartmentListScreen(
-            navController = rememberNavController(),
-        )
-    }
-}
-*/

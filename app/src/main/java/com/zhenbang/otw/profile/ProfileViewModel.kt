@@ -1,4 +1,4 @@
-package com.zhenbang.otw.profile // Or your profile package
+package com.zhenbang.otw.profile
 
 import android.app.Application
 import android.net.Uri // Import Uri
@@ -16,8 +16,8 @@ import kotlinx.coroutines.launch
 // Represents the status of fetching/checking the user profile
 enum class ProfileStatus {
     LOADING,
-    COMPLETE, // Profile exists and has essential details
-    INCOMPLETE, // Profile exists but missing essential details, or doesn't exist yet
+    COMPLETE,
+    INCOMPLETE,
     ERROR,
     LOGGED_OUT
 }
@@ -117,17 +117,13 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             _uiState.update { it.copy(isUploadingImage = true, errorMessage = null) }
             Log.d(TAG, "Starting profile image upload for user $userId")
 
-            // *** Call the actual repository function ***
             val uploadResult = authRepository.uploadProfileImage(userId, imageUri)
-            // ******************************************
 
             uploadResult.onSuccess { downloadUrl ->
                 Log.d(TAG, "Image upload successful. URL: $downloadUrl. Updating profile.")
-                // Now update the profileImageUrl field in Firestore
                 val updateResult = authRepository.updateUserProfile(userId, mapOf("profileImageUrl" to downloadUrl))
                 updateResult.onSuccess {
                     Log.d(TAG, "Profile image URL updated in Firestore.")
-                    // Update local state immediately for instant UI feedback
                     _uiState.update { currentState ->
                         currentState.copy(
                             isUploadingImage = false,
@@ -145,17 +141,14 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             }
         }
     }
-    // ---------------------------------------------------------
 
-
-    // Function to update profile - can be called from CompleteProfileViewModel or ProfileScreen
     fun updateUserProfile(userId: String, updates: Map<String, Any?>) {
         viewModelScope.launch {
             Log.d(TAG, "Attempting profile update for $userId")
             val result = authRepository.updateUserProfile(userId, updates)
             result.onSuccess {
                 Log.d(TAG, "Profile update successful for $userId. Refetching profile.")
-                fetchUserProfile(userId) // Refetch to ensure UI has latest data
+                fetchUserProfile(userId)
             }.onFailure { exception ->
                 Log.e(TAG, "Profile update failed for $userId", exception)
                 _uiState.update { it.copy(
@@ -165,7 +158,6 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    // Helper to clear error messages
     fun clearError() {
         if (_uiState.value.errorMessage != null) {
             _uiState.update { it.copy(errorMessage = null) }

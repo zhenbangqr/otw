@@ -23,9 +23,7 @@ class VerificationViewModel(application: Application) : AndroidViewModel(applica
 
     // Instantiate repository (Ideally use Dependency Injection)
     private val authRepository: AuthRepository = FirebaseAuthRepository()
-    // --- Get FirebaseAuth instance if needed ---
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
-    // -----------------------------------------
 
     private val _uiState = MutableStateFlow<VerificationUiState>(VerificationUiState.Idle)
     val uiState = _uiState.asStateFlow()
@@ -43,13 +41,11 @@ class VerificationViewModel(application: Application) : AndroidViewModel(applica
             _uiState.value = VerificationUiState.Resending
             Log.d("VerificationViewModel", "Requesting resend verification link")
 
-            // Use interface method directly if possible, avoid casting if DI is used
             val result = authRepository.resendVerificationLink()
 
             result.onSuccess {
                 Log.d("VerificationViewModel", "Resend link successful")
                 _uiState.value = VerificationUiState.Idle
-                // Optionally emit success event for Snackbar
             }.onFailure { exception ->
                 Log.e("VerificationViewModel", "Resend link failed", exception)
                 val errorMsg = mapVerificationError(exception)
@@ -76,7 +72,6 @@ class VerificationViewModel(application: Application) : AndroidViewModel(applica
                 Log.d("VerificationViewModel", "Verification status checked: $verifiedStatus")
 
                 if (verifiedStatus) {
-                    // --- Verification SUCCESSFUL ---
                     isVerified = true // Update state for UI effect/navigation
 
                     // Get current user info needed for saving
@@ -86,30 +81,22 @@ class VerificationViewModel(application: Application) : AndroidViewModel(applica
 
                     if (userId != null && userEmail != null) {
                         Log.d("VerificationViewModel", "User verified, attempting to save data for $userId")
-                        // *** Call the new repository function to save data ***
                         val saveResult = authRepository.saveUserDataAfterVerification(userId, userEmail)
                         saveResult.onSuccess {
                             Log.d("VerificationViewModel", "User data saved successfully after verification.")
-                            // UI state reset happens below if no error
                         }.onFailure { saveError ->
                             Log.e("VerificationViewModel", "Failed to save user data after verification", saveError)
-                            // Decide how to handle this error. Maybe show a message?
-                            // Set error state, but user is technically verified.
                             _uiState.value = VerificationUiState.Error("Email verified, but failed to save profile data. Please try logging in.")
-                            // Keep isVerified = true so navigation might still happen? Or set isVerified = false?
-                            // Setting isVerified = false might be safer to force login again.
                             isVerified = false
                         }
                     } else {
                         Log.e("VerificationViewModel", "User is verified but user ID or email is null. Cannot save data.")
                         _uiState.value = VerificationUiState.Error("Verification check error: User info missing.")
-                        isVerified = false // Treat as error
+                        isVerified = false
                     }
-                    // ----------------------------------
                 } else {
                     // --- Verification FAILED ---
-                    isVerified = false // Update state for UI effect
-                    // UI state reset happens below if no error
+                    isVerified = false
                 }
 
             }.onFailure { exception ->
@@ -126,8 +113,6 @@ class VerificationViewModel(application: Application) : AndroidViewModel(applica
             }
         }
     }
-
-    // ... (resetVerificationStatus, clearVerificationError, resetVerificationStateToIdle, mapVerificationError remain the same) ...
 
     /**
      * Resets the isVerified state, typically after the UI has reacted to it.
@@ -157,7 +142,6 @@ class VerificationViewModel(application: Application) : AndroidViewModel(applica
      * Maps common exceptions from verification operations to user-friendly messages.
      */
     private fun mapVerificationError(exception: Throwable): String {
-        // You can add more specific Firebase exception checks here if needed
         return when (exception) {
             is IOException -> "Network error. Please check connection."
             is IllegalStateException -> exception.message ?: "Cannot perform action now. Are you signed in?" // Often happens if currentUser is null

@@ -1,4 +1,4 @@
-package com.zhenbang.otw.enterSelfDetails // Match the directory structure
+package com.zhenbang.otw.enterSelfDetails
 
 import androidx.compose.foundation.BorderStroke // *** Import BorderStroke ***
 import androidx.compose.foundation.layout.*
@@ -27,25 +27,21 @@ import java.util.* // Import Date, Calendar, Locale, TimeZone
 @Composable
 fun EnterSelfDetailsScreen(
     selfDetailsViewModel: EnterSelfDetailsViewModel = viewModel(),
-    onDetailsSaved: () -> Unit, // Callback to navigate after saving
+    onDetailsSaved: () -> Unit,
     onLogout: () -> Unit
 ) {
     val uiState by selfDetailsViewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    // --- Date Picker State ---
-    // Ensure rememberDatePickerState is correctly imported and used
     val datePickerState = rememberDatePickerState(
         initialSelectedDateMillis = uiState.birthdateMillis,
         yearRange = (Calendar.getInstance().get(Calendar.YEAR) - 100)..(Calendar.getInstance().get(Calendar.YEAR))
     )
-    // *** Wrap derivedStateOf in remember ***
+
     val confirmEnabled by remember {
         derivedStateOf { datePickerState.selectedDateMillis != null }
     }
-    // ************************************
 
-    // --- Effects ---
     LaunchedEffect(uiState.isSaveSuccess) {
         if (uiState.isSaveSuccess) {
             Toast.makeText(context, "Details Saved!", Toast.LENGTH_SHORT).show()
@@ -61,13 +57,11 @@ fun EnterSelfDetailsScreen(
         }
     }
 
-    // --- Date Formatting ---
-    val dateFormatter = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) } // Changed format
+    val dateFormatter = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
     val selectedDateString = remember(uiState.birthdateMillis) {
         uiState.birthdateMillis?.let { dateFormatter.format(Date(it)) } ?: "Select Date"
     }
 
-    // --- Main UI ---
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("Complete Your Profile") })
@@ -121,12 +115,10 @@ fun EnterSelfDetailsScreen(
                 onClick = { selfDetailsViewModel.showDatePicker(true) },
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 18.dp),
-                // *** 3. Corrected Border Definition ***
                 border = BorderStroke(
                     width = 1.dp,
                     color = if (isBirthdateError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline // Use appropriate colors
                 )
-                // ************************************
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -206,12 +198,9 @@ fun EnterSelfDetailsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        // Pass selected date (in UTC milliseconds) to ViewModel
-                        // The state holds the value, just need to update birthdate in VM
                         selfDetailsViewModel.updateBirthdate(datePickerState.selectedDateMillis)
                     },
-                    // Use the remembered derived state here
-                    enabled = confirmEnabled // Use the value of the remembered state
+                    enabled = confirmEnabled
                 ) {
                     Text("OK")
                 }
@@ -227,5 +216,4 @@ fun EnterSelfDetailsScreen(
             DatePicker(state = datePickerState)
         }
     }
-    // --------------------------
 }

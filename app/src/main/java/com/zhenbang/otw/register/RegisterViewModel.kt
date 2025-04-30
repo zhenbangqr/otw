@@ -5,6 +5,8 @@ import android.util.Log
 import android.util.Patterns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
+import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.zhenbang.otw.data.AuthRepository
 import com.zhenbang.otw.data.FirebaseAuthRepository // Assuming direct instantiation for now
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,41 +17,32 @@ import java.lang.IllegalArgumentException
 import java.lang.IllegalStateException
 
 class RegisterViewModel(application: Application) : AndroidViewModel(application) {
-
-    // Instantiate repository (Ideally use Dependency Injection)
     private val authRepository: AuthRepository = FirebaseAuthRepository()
 
     private val _uiState = MutableStateFlow<RegisterUiState>(RegisterUiState.Idle)
     val uiState = _uiState.asStateFlow()
-
-    // REMOVED: fun sendVerificationCode(email: String)
 
     /**
      * Initiates the user registration process via the repository.
      * Creates user and sends verification link.
      * Updates the UI state based on the outcome.
      */
-    // CHANGED: Signature takes only email and password
     fun registerUser(email: String, password: String) {
-        // Prevent concurrent actions
         if (_uiState.value == RegisterUiState.Registering) return
 
-        // Add client-side validation (already present in Screen, but good to have here too)
         if (!isValidEmailFormat(email)) {
             _uiState.value = RegisterUiState.Error("Please enter a valid email address.")
             return
         }
-        if (password.length < 6) { // Keep basic password check
+        if (password.length < 6) {
             _uiState.value = RegisterUiState.Error("Password must be at least 6 characters.")
             return
         }
-        // REMOVED: Code validation
 
         viewModelScope.launch {
             _uiState.value = RegisterUiState.Registering
             Log.d("RegisterViewModel", "Attempting registration for $email via repository")
             try {
-                // Call the new repository method
                 val result = authRepository.createUserAndSendVerificationLink(email, password)
 
                 result.onSuccess {
@@ -71,9 +64,6 @@ class RegisterViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    // --- Helper functions (isValidEmailFormat, mapErrorToMessage, clearErrorState, resetState) ---
-    // Keep these, but update mapErrorToMessage if needed for new Firebase exceptions
-
     private fun isValidEmailFormat(email: String): Boolean {
         return Patterns.EMAIL_ADDRESS.matcher(email).matches()
     }
@@ -82,11 +72,10 @@ class RegisterViewModel(application: Application) : AndroidViewModel(application
         // Adjust based on exceptions thrown by FirebaseAuthRepository
         return when (exception) {
             is IOException -> "Network error. Please check connection and try again."
-            // Map specific exceptions from Firebase Auth / your repo
             is IllegalArgumentException -> exception.message ?: "Invalid data provided." // e.g., Email exists, weak password
             is IllegalStateException -> exception.message ?: "Operation cannot be completed." // e.g., User null
-            // is FirebaseAuthUserCollisionException -> "Email address is already in use." // Caught in Repo now
-            // is FirebaseAuthWeakPasswordException -> "Password is too weak." // Caught in Repo now
+            is FirebaseAuthUserCollisionException -> "Email address is already in use." // Caught in Repo now
+            is FirebaseAuthWeakPasswordException -> "Password is too weak." // Caught in Repo now
             else -> "$defaultPrefix: ${exception.message ?: "Unknown error"}"
         }
     }

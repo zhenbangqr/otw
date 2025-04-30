@@ -1,4 +1,4 @@
-package com.zhenbang.otw.login // Ensure this matches your package structure
+package com.zhenbang.otw.login
 
 import android.app.Application
 import android.util.Log
@@ -17,7 +17,7 @@ import java.lang.IllegalArgumentException
 
 class LoginViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val authRepository: AuthRepository = FirebaseAuthRepository() // Or inject
+    private val authRepository: AuthRepository = FirebaseAuthRepository()
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
     private val TAG = "LoginViewModel"
 
@@ -69,7 +69,6 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
             val currentUser = firebaseAuth.currentUser
             if (currentUser != null) {
                 Log.d(TAG, "Email/Pass login success, saving/updating login info for ${currentUser.uid}")
-                // Save basic login info (email, uid, lastLoginAt) - NO photoURL here
                 val saveLoginResult = authRepository.saveOrUpdateUserLoginInfo(currentUser)
                 saveLoginResult.onSuccess {
                     Log.d(TAG, "User login info saved/updated successfully.")
@@ -108,7 +107,6 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
 
                     // *** 3. Check if Firestore profile exists, create if not OR update photo if missing ***
                     checkAndCreateOrUpdateGoogleProfile(firebaseUser) // Pass the linked user
-                    // ***********************************************************************************
 
                 }.onFailure { saveLoginError ->
                     Log.e(TAG, "Failed to save/update Google user login info", saveLoginError)
@@ -125,16 +123,15 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
     // --- Helper function to check/create initial Google profile OR update missing photo ---
     private suspend fun checkAndCreateOrUpdateGoogleProfile(firebaseUser: FirebaseUser) {
         val userId = firebaseUser.uid
-        val userEmail = firebaseUser.email ?: "" // Get email
-        val photoUrl = firebaseUser.photoUrl?.toString() // Get Google photo URL
-        val displayName = firebaseUser.displayName // Get Google display name
+        val userEmail = firebaseUser.email ?: ""
+        val photoUrl = firebaseUser.photoUrl?.toString()
+        val displayName = firebaseUser.displayName
 
         Log.d(TAG, "Checking profile for Google user: $userId")
         val profileResult = authRepository.getUserProfile(userId)
 
         profileResult.onSuccess { existingProfile ->
             if (existingProfile == null) {
-                // --- Profile does NOT exist: Create it ---
                 Log.d(TAG, "Profile for $userId does not exist. Creating initial profile.")
                 val initialProfileData = mutableMapOf<String, Any?>(
                     "uid" to userId,
@@ -158,13 +155,10 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
                     Log.e(TAG, "Failed to create initial Google profile for $userId", createError)
                     _uiState.value = LoginUiState.Error("Google Sign-In successful, but failed to create profile.")
                 }
-                // -----------------------------------------
 
             } else {
-                // --- Profile EXISTS: Check if photo needs updating ---
                 Log.d(TAG, "Profile for $userId already exists.")
                 if (existingProfile.profileImageUrl.isNullOrBlank() && photoUrl != null) {
-                    // Profile exists but is missing image, AND Google has an image
                     Log.d(TAG,"Existing profile missing image. Updating with Google photo: $photoUrl")
                     // Call repository to update ONLY the image field
                     val updateResult = authRepository.updateUserProfile(userId, mapOf("profileImageUrl" to photoUrl))
@@ -173,7 +167,6 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
                         _uiState.value = LoginUiState.LoginVerifiedSuccess // Proceed after update
                     }.onFailure { updateError ->
                         Log.e(TAG, "Failed to add Google photo to existing profile", updateError)
-                        // Decide how to handle error - maybe proceed anyway?
                         _uiState.value = LoginUiState.Error("Login successful, but failed to update profile picture.")
                     }
                 } else {
@@ -181,16 +174,13 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
                     Log.d(TAG, "Existing profile has image or Google has no photo. Proceeding.")
                     _uiState.value = LoginUiState.LoginVerifiedSuccess // Proceed directly
                 }
-                // ----------------------------------------------------
             }
         }.onFailure { fetchError ->
             Log.e(TAG, "Failed to check for existing profile for $userId", fetchError)
             _uiState.value = LoginUiState.Error("Google Sign-In successful, but failed check profile existence.")
         }
     }
-    // -----------------------------------------------------------------
 
-    // --- Helper Functions ---
     private fun isValidEmailFormat(email: String): Boolean {
         return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
     }

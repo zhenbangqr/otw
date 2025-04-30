@@ -25,23 +25,18 @@ class IssueViewModel(private val repository: IssueRepository) : ViewModel() {
      * Mirrors the TaskViewModel's insertTask which uses OnConflictStrategy.REPLACE in the DAO.
      */
     fun upsertIssue(issue: Issue) = viewModelScope.launch {
-        // Perform trimming or add creationTimestamp if it's a new issue (issueId == 0) before saving
         val issueToSave = if (issue.issueId == 0) {
-            // It's a new issue, ensure timestamp is set and fields are trimmed
             issue.copy(
                 issueTitle = issue.issueTitle.trim(),
                 issueDescription = issue.issueDescription.trim(),
-                creationTimestamp = System.currentTimeMillis() // Ensure timestamp for new issues
+                creationTimestamp = System.currentTimeMillis()
             )
         } else {
-            // It's an existing issue, just trim fields
             issue.copy(
                 issueTitle = issue.issueTitle.trim(),
                 issueDescription = issue.issueDescription.trim()
-                // Keep original creationTimestamp and departmentId for edits
             )
         }
-        // The repository's insertIssue uses the DAO's insert which has REPLACE strategy
         repository.insertIssue(issueToSave)
     }
 
@@ -55,8 +50,6 @@ class IssueViewModel(private val repository: IssueRepository) : ViewModel() {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(IssueViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                // Get repository instance via its singleton getter
-                // Use applicationContext to avoid potential leaks
                 return IssueViewModel(IssueRepository.getRepository(context.applicationContext)) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")

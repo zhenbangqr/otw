@@ -1,6 +1,5 @@
-package com.zhenbang.otw.emailVerification // Adjust package if needed
+package com.zhenbang.otw.emailVerification
 
-// *** Ensure these imports are present and correct ***
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -14,34 +13,20 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
-//-----------------------------------------------------
-
-// Removed duplicate package declaration
 
 
-// Define UI States specific to this screen (Can be moved to its own file: VerificationUiState.kt)
-// sealed class VerificationUiState { // Keep this defined, preferably in its own file
-//     object Idle : VerificationUiState()
-//     object Resending : VerificationUiState()
-//     object Checking : VerificationUiState()
-//     data class Error(val message: String) : VerificationUiState()
-// }
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VerificationScreen(
-    // Pass email for display, or get from ViewModel if needed
     email: String?, // Make email nullable or handle appropriately if unavailable
-    // *** CHANGED: Use VerificationViewModel ***
     verificationViewModel: VerificationViewModel = viewModel(),
     onNavigateToLogin: () -> Unit,
-    onNavigateBack: () -> Unit // Optional: Go back
+    onNavigateBack: () -> Unit
 ) {
     val context = LocalContext.current
-    // *** CHANGED: Observe state from verificationViewModel ***
-    val uiState by verificationViewModel.uiState.collectAsStateWithLifecycle() // Observe state
-    // *** CHANGED: Observe verification status from verificationViewModel ***
+    val uiState by verificationViewModel.uiState.collectAsStateWithLifecycle()
     val isVerifiedStatus = verificationViewModel.isVerified
 
     // Resend Button Timer State
@@ -59,36 +44,26 @@ fun VerificationScreen(
         }
     }
 
-    // Handle ViewModel State Effects (Show messages, navigate on success)
     LaunchedEffect(uiState) {
         when (val state = uiState) {
             is VerificationUiState.Error -> {
                 Toast.makeText(context, state.message, Toast.LENGTH_SHORT).show()
-                // *** CHANGED: Use verificationViewModel ***
-                verificationViewModel.clearVerificationError() // Clear state after showing
+                verificationViewModel.clearVerificationError()
             }
-            // Add handling for other states if needed (e.g., show confirmation on resend)
             else -> {}
         }
     }
 
-    // Handle Verification Check Result (from ViewModel)
-    // *** CHANGED: Observe verificationViewModel.isVerified ***
-    LaunchedEffect(isVerifiedStatus) { // Renamed variable for clarity
+    LaunchedEffect(isVerifiedStatus) {
         if (isVerifiedStatus == true) {
             Toast.makeText(context, "Email verified successfully!", Toast.LENGTH_SHORT).show()
-            onNavigateToLogin() // Navigate to login now they are verified
-            // *** CHANGED: Use verificationViewModel ***
-            verificationViewModel.resetVerificationStatus() // Reset flag
+            onNavigateToLogin()
+            verificationViewModel.resetVerificationStatus()
         } else if (isVerifiedStatus == false) {
-            // Only show toast if the check was explicitly triggered and failed
-            if(uiState is VerificationUiState.Checking){ // Check the uiState flow
+            if(uiState is VerificationUiState.Checking){
                 Toast.makeText(context, "Email not verified yet.", Toast.LENGTH_SHORT).show()
             }
-            // Reset verification status flag after handling
-            // *** CHANGED: Use verificationViewModel ***
             verificationViewModel.resetVerificationStatus()
-            // Reset UI state only if it wasn't an error (handled in the other effect)
             if(uiState !is VerificationUiState.Error) {
                 verificationViewModel.resetVerificationStateToIdle()
             }
@@ -119,18 +94,14 @@ fun VerificationScreen(
             )
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Determine general loading state for enabling/disabling buttons
             val isLoading = uiState is VerificationUiState.Checking || uiState is VerificationUiState.Resending
 
             // Resend Verification Button
             Button(
                 onClick = {
-                    // *** CHANGED: Use verificationViewModel ***
                     verificationViewModel.resendVerificationLink()
                     resendRemainingTime = 60 // Start 60s timer
                     isResendTimerRunning = true
-                    // Consider showing Toast from LaunchedEffect based on state instead of here
-                    // Toast.makeText(context, "Resending verification email...", Toast.LENGTH_SHORT).show()
                 },
                 enabled = !isResendTimerRunning && !isLoading, // Disable during timer and loading states
                 modifier = Modifier.fillMaxWidth()
@@ -147,10 +118,9 @@ fun VerificationScreen(
             // Button to check if verified / continue
             OutlinedButton(
                 onClick = {
-                    // *** CHANGED: Use verificationViewModel ***
-                    verificationViewModel.checkVerificationStatus() // Trigger check in ViewModel
+                    verificationViewModel.checkVerificationStatus()
                 },
-                enabled = !isLoading, // Disable during loading states
+                enabled = !isLoading,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (uiState is VerificationUiState.Checking) {
@@ -161,7 +131,7 @@ fun VerificationScreen(
             }
             Spacer(modifier = Modifier.height(8.dp))
             // Optional: Button to go back
-            TextButton(onClick = onNavigateBack, enabled = !isLoading) { // Disable during loading
+            TextButton(onClick = onNavigateBack, enabled = !isLoading) {
                 Text("Go Back")
             }
         }
