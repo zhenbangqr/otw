@@ -275,4 +275,26 @@ class FirebaseAuthRepository : AuthRepository {
             Result.failure(e)
         }
     }
+
+    override suspend fun getAllUserProfilesFromFirestore(): Result<List<UserProfile>> {
+        return try {
+            Log.d(TAG, "Attempting to fetch all user profiles from Firestore collection 'users'")
+            // Get all documents from the 'users' collection
+            val querySnapshot = usersCollection.get().await()
+            // Convert each document to a UserProfile object, filtering out nulls if conversion fails
+            val userProfiles = querySnapshot.documents.mapNotNull { document ->
+                try {
+                    document.toObject<UserProfile>()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error converting document ${document.id} to UserProfile", e)
+                    null // Skip documents that fail conversion
+                }
+            }
+            Log.d(TAG, "Fetched ${userProfiles.size} user profiles successfully.")
+            Result.success(userProfiles)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to fetch all user profiles from Firestore", e)
+            Result.failure(e) // Propagate the exception (likely a permission error if rules aren't set)
+        }
+    }
 }
