@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.gms.google-services")
     id("com.google.devtools.ksp") version "2.0.21-1.0.27"
 }
 
@@ -17,6 +18,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["appAuthRedirectScheme"] = "com.zhenbang.otw"
     }
 
     buildTypes {
@@ -38,18 +40,58 @@ android {
     buildFeatures {
         compose = true
     }
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
 }
 
 dependencies {
     implementation(libs.androidx.core.ktx)
+    // --- Core KTX & Lifecycle / Compose Runtime ---
+    implementation(libs.androidx.core.ktx) // Keep ONE core-ktx
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose) // For collectAsStateWithLifecycle etc.
     implementation(libs.androidx.activity.compose)
-    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.lifecycle.viewmodelCompose) // For viewModel() delegate
+    // implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0") // Add to TOML as libs.androidx.lifecycle.viewmodel.ktx if needed separately
+
+    // --- Firebase (using BOM) ---
+    implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation(platform(libs.firebase.bom)) // Defines versions for other Firebase libs
+    implementation(libs.firebase.auth.ktx)     // Essential for Firebase Auth + Kotlin extensions
+    implementation(libs.firebase.analytics)   // Firebase Analytics KTX
+    implementation(libs.firebase.functions.ktx) // Firebase Functions KTX (if you use Cloud Functions)
+
+    // --- AppAuth (Google Sign In via OAuth) ---
+    implementation(libs.openid.appauth) // Use the libs version (ensure defined in toml)
+
+    // --- AndroidX Security (EncryptedSharedPreferences) ---
+    // Ensure libs.androidx.security.crypto points to EITHER 1.0.0 OR 1.1.0-alpha06 in libs.versions.toml
+    implementation(libs.androidx.security.crypto)
+
+    // --- AndroidX Browser (CustomTabsIntent) ---
+    // Ensure libs.androidx.browser points to the desired version (e.g., 1.8.0) in libs.versions.toml
+    implementation(libs.androidx.browser)
+
+    // --- Kotlin Coroutines ---
+    // Ensure libs.kotlinx.coroutines.android points to the desired version in libs.versions.toml
+    implementation(libs.kotlinx.coroutines.android)
+
+    // --- Compose UI & Navigation ---
+    implementation(platform(libs.androidx.compose.bom)) // Compose BOM
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.material.iconsExtended)
+
+    // --- Testing ---
     val room_version = "2.6.1"
+    implementation("com.google.firebase:firebase-storage-ktx")
+    implementation("io.coil-kt:coil-compose:2.6.0")
     implementation("androidx.room:room-runtime:$room_version")
     annotationProcessor("androidx.room:room-compiler:$room_version")
     ksp("androidx.room:room-compiler:$room_version")

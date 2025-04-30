@@ -40,7 +40,6 @@ import com.zhenbang.otw.database.Task
 @Composable
 fun TaskDetailScreen(navController: NavController, taskViewModel: TaskViewModel, taskId: Int) {
     val task: Task? by taskViewModel.getTaskById(taskId).collectAsState(initial = null)
-
     Scaffold(
         topBar = {
             Row(

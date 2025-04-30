@@ -6,11 +6,18 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.zhenbang.otw.database.Department
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class DepartmentViewModel(private val repository: DepartmentRepository) : ViewModel() {
 
     val allDepartments: Flow<List<Department>> = repository.allDepartments
+
+    private val _selectedTabFlow = MutableStateFlow("Issues")
+
+    val selectedTabFlow: StateFlow<String> = _selectedTabFlow.asStateFlow()
 
     private val defaultImageUrl = "https://dummyimage.com/400x400/D3D3D3/3F3F3F&text=No+Image"
 
@@ -33,6 +40,10 @@ class DepartmentViewModel(private val repository: DepartmentRepository) : ViewMo
 
     fun getDepartmentById(id: Int): Flow<Department?> {
         return repository.getDepartmentById(id)
+    }
+
+    fun selectTab(tabName: String) {
+        _selectedTabFlow.value = tabName
     }
 
     class Factory(private val context: Context) : ViewModelProvider.Factory {

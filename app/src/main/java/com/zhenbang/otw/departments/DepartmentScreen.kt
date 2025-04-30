@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,7 +22,9 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
@@ -30,7 +33,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -43,6 +45,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MaterialTheme.typography
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -75,21 +78,21 @@ import androidx.navigation.navArgument
 import coil.compose.AsyncImage
 import com.zhenbang.otw.database.Department
 import com.zhenbang.otw.database.Task
+import com.zhenbang.otw.issues.AddEditIssueScreen
+import com.zhenbang.otw.issues.IssueViewModel
 import com.zhenbang.otw.tasks.AddEditTaskScreen
 import com.zhenbang.otw.tasks.TaskDetailScreen
 import com.zhenbang.otw.tasks.TaskViewModel
 import com.zhenbang.otw.ui.theme.OnTheWayTheme
+import com.zhenbang.otw.database.Issue
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.runtime.saveable.rememberSaveable
 
 sealed class Screen(val route: String) {
     object DepartmentList : Screen("department_list")
     object DepartmentDetails : Screen("department_details/{departmentId}/{departmentName}") {
         fun createRoute(departmentId: Int, departmentName: String) =
-            "department_details/$departmentId/${
-                departmentName.replace(
-                    "/",
-                    "%2F"
-                )
-            }" // encode slashes
+            "department_details/$departmentId/${departmentName.replace("/", "%2F")}" // encode slashes
     }
 
     object TaskDetail : Screen("task_details/{taskId}") {
@@ -97,91 +100,124 @@ sealed class Screen(val route: String) {
     }
 
     object AddEditTask : Screen("add_edit_task/{departmentId}/{taskId}") {
-        fun createRoute(departmentId: Int) = "add_edit_task/$departmentId/-1"
-        fun createRoute(departmentId: Int, taskId: Int) = "add_edit_task/$departmentId/$taskId"
+        fun createRoute(departmentId: Int) = "add_edit_task/$departmentId/-1" // Add new task
+        fun createRoute(departmentId: Int, taskId: Int) = "add_edit_task/$departmentId/$taskId" // Edit existing task
     }
+
+    // Add routes for Issues
+    object AddEditIssue : Screen("add_edit_issue/{departmentId}/{issueId}") {
+        fun createRoute(departmentId: Int) = "add_edit_issue/$departmentId/-1" // Add new issue
+        fun createRoute(departmentId: Int, issueId: Int) = "add_edit_issue/$departmentId/$issueId" // Edit existing issue
+    }
+
+    // Optional: If you want a separate detail screen for issues
+    // object IssueDetail : Screen("issue_details/{issueId}") {
+    //    fun createRoute(issueId: Int) = "issue_details/$issueId"
+    // }
 }
 
-@Composable
-fun DepartmentNavigation() {
-    val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = Screen.DepartmentList.route) {
-        composable(Screen.DepartmentList.route) {
-            DepartmentListScreen(navController = navController)
-        }
-        composable(
-            route = Screen.DepartmentDetails.route,
-            arguments = listOf(
-                navArgument("departmentId") { type = NavType.IntType },
-                navArgument("departmentName") { type = NavType.StringType }
-            )
-        ) { backStackEntry ->
-            val departmentId = backStackEntry.arguments?.getInt("departmentId") ?: 0
-            val departmentName =
-                backStackEntry.arguments?.getString("departmentName")?.replace("%2F", "/")
-                    ?: "" // decode slashes
-            DepartmentDetailsScreen(
-                navController = navController,
-                departmentId = departmentId,
-                departmentName = departmentName,
-            )
-        }
-        composable(
-            route = Screen.TaskDetail.route,
-            arguments = listOf(navArgument("taskId") { type = NavType.IntType })
-        ) { backStackEntry ->
-            val taskId = backStackEntry.arguments?.getInt("taskId") ?: 0
-            val context = LocalContext.current
-            val taskViewModel: TaskViewModel = viewModel(factory = TaskViewModel.Factory(context))
-            TaskDetailScreen(
-                navController = navController,
-                taskViewModel = taskViewModel,
-                taskId = taskId
-            )
-        }
-        composable(
-            route = Screen.AddEditTask.route,
-            arguments = listOf(
-                navArgument("departmentId") { type = NavType.IntType },
-                navArgument("taskId") { type = NavType.IntType })
-        ) { backStackEntry ->
-            val departmentId = backStackEntry.arguments?.getInt("departmentId") ?: 0
-            val taskId = backStackEntry.arguments?.getInt("taskId") ?: -1
-            val context = LocalContext.current
-            val taskViewModel: TaskViewModel = viewModel(factory = TaskViewModel.Factory(context))
-            AddEditTaskScreen(
-                navController = navController,
-                departmentId = departmentId,
-                taskViewModel = taskViewModel,
-                taskId = taskId
-            )
-        }
-    }
-}
+//@Composable
+//fun DepartmentNavigation() {
+//    val navController = rememberNavController()
+//    NavHost(navController = navController, startDestination = Screen.DepartmentList.route) {
+//        composable(Screen.DepartmentList.route) {
+//            DepartmentListScreen(navController = navController)
+//        }
+//        composable(
+//            route = Screen.DepartmentDetails.route,
+//            arguments = listOf(
+//                navArgument("departmentId") { type = NavType.IntType },
+//                navArgument("departmentName") { type = NavType.StringType }
+//            )
+//        ) { backStackEntry ->
+//            val departmentId = backStackEntry.arguments?.getInt("departmentId") ?: 0
+//            val departmentName =
+//                backStackEntry.arguments?.getString("departmentName")?.replace("%2F", "/")
+//                    ?: "" // decode slashes
+//            DepartmentDetailsScreen(
+//                navController = navController,
+//                departmentId = departmentId,
+//                departmentName = departmentName,
+//            )
+//        }
+//        composable(
+//            route = Screen.TaskDetail.route,
+//            arguments = listOf(navArgument("taskId") { type = NavType.IntType })
+//        ) { backStackEntry ->
+//            val taskId = backStackEntry.arguments?.getInt("taskId") ?: 0
+//            val context = LocalContext.current
+//            val taskViewModel: TaskViewModel = viewModel(factory = TaskViewModel.Factory(context))
+//            TaskDetailScreen(
+//                navController = navController,
+//                taskViewModel = taskViewModel,
+//                taskId = taskId
+//            )
+//        }
+//        composable(
+//            route = Screen.AddEditTask.route,
+//            arguments = listOf(
+//                navArgument("departmentId") { type = NavType.IntType },
+//                navArgument("taskId") { type = NavType.IntType })
+//        ) { backStackEntry ->
+//            val departmentId = backStackEntry.arguments?.getInt("departmentId") ?: 0
+//            val taskId = backStackEntry.arguments?.getInt("taskId") ?: -1
+//            val context = LocalContext.current
+//            val taskViewModel: TaskViewModel = viewModel(factory = TaskViewModel.Factory(context))
+//            AddEditTaskScreen(
+//                navController = navController,
+//                departmentId = departmentId,
+//                taskViewModel = taskViewModel,
+//                taskId = taskId
+//            )
+//        }
+//
+//        // *** Add composable for AddEditIssueScreen ***
+//        composable(
+//            route = Screen.AddEditIssue.route,
+//            arguments = listOf(
+//                navArgument("departmentId") { type = NavType.IntType },
+//                navArgument("issueId") { type = NavType.IntType } // Use issueId here
+//            )
+//        ) { backStackEntry ->
+//            val context = LocalContext.current
+//            val departmentId = backStackEntry.arguments?.getInt("departmentId") ?: 0
+//            val issueId = backStackEntry.arguments?.getInt("issueId") ?: -1 // Default to -1 for "add"
+//            // Initialize IssueViewModel using its Factory
+//            val issueViewModel: IssueViewModel = viewModel(factory = IssueViewModel.Factory(context))
+//
+//            // Call the AddEditIssueScreen composable
+//            AddEditIssueScreen(
+//                navController = navController,
+//                departmentId = departmentId,
+//                issueViewModel = issueViewModel,
+//                issueId = issueId
+//            )
+//        }
+//
+//        // Optional: Add composable for IssueDetailScreen if you create one
+//        /*
+//        composable(
+//            route = Screen.IssueDetail.route,
+//            arguments = listOf(navArgument("issueId") { type = NavType.IntType })
+//        ) { backStackEntry ->
+//            val issueId = backStackEntry.arguments?.getInt("issueId") ?: 0
+//            val issueViewModel: IssueViewModel = viewModel(factory = IssueViewModel.Factory(context))
+//            // IssueDetailScreen(navController = navController, issueViewModel = issueViewModel, issueId = issueId)
+//        }
+//        */
+//    }
+//}
 
 @Composable
 fun DepartmentListScreen(navController: NavController) {
     val context = LocalContext.current
     val departmentViewModel: DepartmentViewModel =
         viewModel(factory = DepartmentViewModel.Factory(context))
-    val departmentsFlow = departmentViewModel.allDepartments
-    var showDialog by remember { mutableStateOf(false) }
-    var departmentName by remember { mutableStateOf("") }
-    var imageUrl by remember { mutableStateOf("") }
-    var isGridView by remember { mutableStateOf(true) }
-    var isSortAscending by remember { mutableStateOf(true) }
-
-    val sortedDepartments by departmentsFlow.collectAsState(initial = emptyList()).let { state ->
-        remember(state.value, isSortAscending) {
-            mutableStateOf(
-                if (isSortAscending) {
-                    state.value.sortedBy { it.departmentName.lowercase() }
-                } else {
-                    state.value.sortedByDescending { it.departmentName.lowercase() }
-                }
-            )
-        }
-    }
+    val departments = departmentViewModel.allDepartments.collectAsState(initial = emptyList())
+    var showDialog by rememberSaveable { mutableStateOf(false) }
+    var departmentName by rememberSaveable { mutableStateOf("") }
+    var imageUrl by rememberSaveable { mutableStateOf("") }
+    var isGridView by rememberSaveable { mutableStateOf(true) }
 
     Scaffold(
         topBar = {
@@ -212,15 +248,8 @@ fun DepartmentListScreen(navController: NavController) {
                     .fillMaxWidth()
                     .padding(top = 83.dp)
                     .padding(8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.End
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { isSortAscending = !isSortAscending }) {
-                        Icon(Icons.Filled.Sort, contentDescription = "Sort")
-                    }
-                    Text(text = "Sort")
-                }
                 IconButton(onClick = { isGridView = !isGridView }) {
                     Icon(
                         imageVector = if (isGridView) Icons.Filled.GridView else Icons.Filled.List,
@@ -242,7 +271,7 @@ fun DepartmentListScreen(navController: NavController) {
                     .padding(paddingValues)
                     .padding(8.dp)
             ) {
-                items(sortedDepartments) { department ->
+                items(departments.value) { department ->
                     Card(
                         modifier = Modifier
                             .padding(8.dp)
@@ -283,7 +312,7 @@ fun DepartmentListScreen(navController: NavController) {
                     .padding(paddingValues)
                     .padding(8.dp)
             ) {
-                items(sortedDepartments) { department ->
+                items(departments.value) { department ->
                     Card(
                         modifier = Modifier
                             .padding(8.dp)
@@ -372,26 +401,42 @@ fun DepartmentDetailsScreen(
     departmentName: String,
 ) {
     val context = LocalContext.current
-    val departmentViewModel: DepartmentViewModel =
-        viewModel(factory = DepartmentViewModel.Factory(context))
+    // Department ViewModel
+    val departmentViewModel: DepartmentViewModel = viewModel(factory = DepartmentViewModel.Factory(context))
     val departmentState: Department? by departmentViewModel.getDepartmentById(departmentId)
         .collectAsState(initial = null)
+    val selectedTab by departmentViewModel.selectedTabFlow.collectAsState()
+
+    // Task ViewModel and Tasks
     val taskViewModel: TaskViewModel = viewModel(factory = TaskViewModel.Factory(context))
     val tasks by taskViewModel.getTasksByDepartmentId(departmentId)
         .collectAsState(initial = emptyList())
-    var selectedTab by remember { mutableStateOf("Issues") }
-    var showMenu by remember { mutableStateOf(false) }
-    var showEditDialog by remember { mutableStateOf(false) }
-    var editedDepartmentName by remember { mutableStateOf(departmentName) }
-    var editedImageUrl by remember { mutableStateOf(departmentState?.imageUrl ?: "") }
-    var showDeleteConfirmationDialog by remember { mutableStateOf(false) }
+
+    // *** Issue ViewModel and Issues ***
+    val issueViewModel: IssueViewModel = viewModel(factory = IssueViewModel.Factory(context))
+    val issues by issueViewModel.getIssuesByDepartmentId(departmentId)
+        .collectAsState(initial = emptyList()) // Collect issues
+
+    var showMenu by rememberSaveable { mutableStateOf(false) }
+    var showEditDialog by rememberSaveable { mutableStateOf(false) }
+    var editedDepartmentName by rememberSaveable { mutableStateOf(departmentName) }
+    var editedImageUrl by rememberSaveable { mutableStateOf(departmentState?.imageUrl ?: "") }
+    var showDeleteConfirmationDialog by rememberSaveable { mutableStateOf(false) }
+
     val onTaskCompleted: (Task, Boolean) -> Unit = { task, isCompleted ->
         taskViewModel.updateTask(task, isCompleted)
     }
 
-    LaunchedEffect(departmentState?.imageUrl) {
-        editedImageUrl = departmentState?.imageUrl ?: ""
-    }
+//    LaunchedEffect(departmentState) {
+//        departmentState?.let {
+//            if (editedDepartmentName != it.departmentName) { // Avoid unnecessary updates if only state reference changed
+//                editedDepartmentName = it.departmentName
+//            }
+//            if (editedImageUrl != (it.imageUrl ?: "")) {
+//                editedImageUrl = it.imageUrl ?: ""
+//            }
+//        }
+//    }
 
     Scaffold(
         topBar = {
@@ -438,38 +483,29 @@ fun DepartmentDetailsScreen(
             }
         },
         bottomBar = {
-            if (selectedTab == "Issues") {
-                Button(
-                    onClick = { /* Issue */ },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                        .padding(bottom = 36.dp)
-                        .border(BorderStroke(2.dp, Color.Gray), RoundedCornerShape(50.dp)),
-                    shape = RoundedCornerShape(50.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Transparent,
-                        contentColor = Color.Black
-                    )
-                ) {
-                    Text("Add New Issue")
-                }
-            } else if (selectedTab == "Tasks") {
-                Button(
-                    onClick = { navController.navigate(Screen.AddEditTask.createRoute(departmentId)) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                        .padding(bottom = 36.dp)
-                        .border(BorderStroke(2.dp, Color.Gray), RoundedCornerShape(50.dp)),
-                    shape = RoundedCornerShape(50.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Transparent,
-                        contentColor = Color.Black
-                    )
-                ) {
-                    Text("Add New Task")
-                }
+            Button(
+                onClick = {
+                    if (selectedTab == "Issues") {
+                        // Navigate to AddEditIssueScreen for a new issue
+                        navController.navigate(Screen.AddEditIssue.createRoute(departmentId))
+                    } else if (selectedTab == "Tasks") {
+                        // Navigate to AddEditTaskScreen for a new task
+                        navController.navigate(Screen.AddEditTask.createRoute(departmentId))
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .padding(bottom = 36.dp) // Adjust as needed
+                    .border(BorderStroke(1.dp, Color.Gray), RoundedCornerShape(50.dp)), // Thinner border
+                shape = RoundedCornerShape(50.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Transparent, // Keep transparent
+                    contentColor = Color.Black // Keep black text
+                )
+            ) {
+                // Dynamically change button text based on selected tab
+                Text(if (selectedTab == "Issues") "Add New Issue" else "Add New Task")
             }
         }
     ) { paddingValues ->
@@ -477,8 +513,9 @@ fun DepartmentDetailsScreen(
             modifier = Modifier
                 .padding(paddingValues)
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
         ) {
-            Box {
+            Box(modifier = Modifier.height(240.dp)) {
                 AsyncImage(
                     model = departmentState?.imageUrl,
                     contentDescription = departmentName,
@@ -505,14 +542,45 @@ fun DepartmentDetailsScreen(
             }
 
             Column(
-                modifier = Modifier.padding(16.dp)
+                //modifier = Modifier.padding(16.dp)
+                modifier = Modifier
+                    .padding(horizontal = 16.dp, vertical = 8.dp) // Padding around tabs/list area
+                    .fillMaxWidth()
             ) {
+//                TabbedContentSection(
+//                    issues = issues, // Pass the collected issues
+//                    tasks = tasks,
+//                    navController = navController,
+//                    currentSelectedTab = selectedTab,
+//                    onTabSelected = { newTabName ->
+//                        departmentViewModel.selectTab(newTabName)
+//                    },
+//                    departmentId = departmentId,
+//                    onTaskCompletedChanged = onTaskCompleted,
+//                    // Pass lambdas for issue actions if needed, or let IssueList handle clicks
+//                    onNavigateToEditIssue = { issue ->
+//                        navController.navigate(Screen.AddEditIssue.createRoute(departmentId, issue.issueId))
+//                    }
+//                )
                 TabbedContentSection(
+                    issues = issues,
                     tasks = tasks,
-                    navController = navController,
-                    onTabSelected = { selectedTab = it },
+                    currentSelectedTab = selectedTab,
+                    onTabSelected = { newTab ->
+                        departmentViewModel.selectTab(newTab)
+                    },
                     departmentId = departmentId,
-                    onTaskCompletedChanged = onTaskCompleted
+                    onTaskCompletedChanged = onTaskCompleted,
+                    onNavigateToEditIssue = { issue ->
+                        navController.navigate(Screen.AddEditIssue.createRoute(departmentId, issue.issueId))
+                    },
+                    onNavigateToTaskDetail = { task ->
+                        navController.navigate(Screen.TaskDetail.createRoute(task.taskId))
+                    },
+                    onNavigateToEditTask = { task ->
+                        navController.navigate(Screen.AddEditTask.createRoute(departmentId, task.taskId))
+                    },
+                    modifier = Modifier.fillMaxHeight()
                 )
             }
 
@@ -595,102 +663,209 @@ fun DepartmentDetailsScreen(
 
 @Composable
 fun TabbedContentSection(
+//    issues: List<Issue>, // Add issues parameter
+//    tasks: List<Task>,
+//    navController: NavController,
+//    currentSelectedTab: String,
+//    onTabSelected: (String) -> Unit,
+//    departmentId: Int,
+//    onTaskCompletedChanged: (Task, Boolean) -> Unit,
+//    onNavigateToEditIssue: (Issue) -> Unit // Add callback for editing issues
+    issues: List<Issue>,
     tasks: List<Task>,
-    navController: NavController,
+    currentSelectedTab: String,
     onTabSelected: (String) -> Unit,
-    departmentId: Int,
-    onTaskCompletedChanged: (Task, Boolean) -> Unit
+    departmentId: Int, // Keep needed params
+    onTaskCompletedChanged: (Task, Boolean) -> Unit,
+    onNavigateToEditIssue: (Issue) -> Unit,
+    onNavigateToTaskDetail: (Task) -> Unit, // Receive needed callbacks
+    onNavigateToEditTask: (Task) -> Unit, // Receive needed callbacks
+    modifier: Modifier = Modifier // *** MODIFIED *** Accept modifier
 ) {
-    var selectedTab by remember { mutableStateOf("Issues") }
-
-    Column {
+    Column(modifier = modifier) {
+        // Row for Tabs (remains the same)
         Row(
             modifier = Modifier
-                .border(BorderStroke(2.dp, Color.Gray), RoundedCornerShape(50.dp))
+                .border(BorderStroke(1.dp, Color.Gray), RoundedCornerShape(50.dp)) // Thinner border
                 .height(48.dp)
                 .clip(RoundedCornerShape(50.dp))
-        ) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .background(if (selectedTab == "Issues") Color.LightGray.copy(alpha = 0.5f) else Color.Transparent)
-                    .clickable {
-                        selectedTab = "Issues"
-                        onTabSelected("Issues")
+                .fillMaxWidth() // Ensure it fills width
+        )
+        {
+            @Composable
+            fun RowScope.TabButton(text: String, isSelected: Boolean, onClick: () -> Unit) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .weight(1f) // *** MODIFIED ***: Make Box take remaining vertical space
+                        .background(if (isSelected) Color.LightGray.copy(alpha = 0.5f) else Color.Transparent)
+                        .clickable(onClick = onClick)
+                        .padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (isSelected) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = "Selected",
+                                tint = Color.Black,
+                                modifier = Modifier.size(18.dp) // Smaller check
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                        }
+                        Text(text, style = MaterialTheme.typography.bodyMedium) // Use theme typography
                     }
-                    .fillMaxHeight()
-                    .padding(horizontal = 16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (selectedTab == "Issues") {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = "Selected",
-                            tint = Color.Black
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                    }
-                    Text("Issues")
                 }
             }
 
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .background(if (selectedTab == "Tasks") Color.LightGray.copy(alpha = 0.5f) else Color.Transparent)
-                    .clickable {
-                        selectedTab = "Tasks"
-                        onTabSelected("Tasks")
-                    }
-                    .fillMaxHeight()
-                    .padding(horizontal = 16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (selectedTab == "Tasks") {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = "Selected",
-                            tint = Color.Black
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                    }
-                    Text("Tasks")
-                }
-            }
+            // Buttons use currentSelectedTab for state, onTabSelected for callback
+            TabButton(text = "Issues", isSelected = currentSelectedTab == "Issues") { onTabSelected("Issues") }
+            TabButton(text = "Tasks", isSelected = currentSelectedTab == "Tasks") { onTabSelected("Tasks") }
         }
 
-        Box(modifier = Modifier.padding(top = 8.dp)) {
-            when (selectedTab) {
-                "Issues" -> Text(text = "Issues Tab Content")
-                "Tasks" -> TaskList(tasks = tasks, onNavigateToDetail = { task ->
-                    navController.navigate(Screen.TaskDetail.createRoute(task.taskId))
-                }, onEditTask = { task ->
-                    navController.navigate(
-                        Screen.AddEditTask.createRoute(
-                            departmentId,
-                            task.taskId
-                        )
-                    )
-                },
-                    onTaskCompletedChanged = onTaskCompletedChanged
+        Box(
+            modifier = Modifier
+                .padding(top = 8.dp)
+                .fillMaxWidth()
+        ) {
+            when (currentSelectedTab) {
+                "Issues" -> IssueList(
+                    issues = issues,
+                    onNavigateToEdit = onNavigateToEditIssue,
+                    // Pass modifier to allow filling the Box
+//                    modifier = Modifier.fillMaxSize() // *** MODIFIED ***
+                )
+                "Tasks" -> TaskList(
+                    tasks = tasks,
+                    onNavigateToDetail = onNavigateToTaskDetail, // Use passed callback
+                    onEditTask = onNavigateToEditTask,         // Use passed callback
+                    onTaskCompletedChanged = onTaskCompletedChanged,
+                    // Pass modifier to allow filling the Box
+//                    modifier = Modifier.fillMaxSize() // *** MODIFIED ***
                 )
             }
         }
+//        {
+//            // Tab Button Composable Refactor (Optional but cleaner)
+//            @Composable
+//            fun TabButton(text: String, isSelected: Boolean, onClick: () -> Unit) {
+//                Box(
+//                    modifier = Modifier
+//                        .weight(1f)
+//                        .fillMaxHeight()
+//                        .background(if (isSelected) Color.LightGray.copy(alpha = 0.5f) else Color.Transparent)
+//                        .clickable(onClick = onClick)
+//                        .padding(horizontal = 16.dp),
+//                    contentAlignment = Alignment.Center
+//                ) {
+//                    Row(verticalAlignment = Alignment.CenterVertically) {
+//                        if (isSelected) {
+//                            Icon(
+//                                imageVector = Icons.Default.Check,
+//                                contentDescription = "Selected",
+//                                tint = Color.Black,
+//                                modifier = Modifier.size(18.dp) // Smaller check
+//                            )
+//                            Spacer(modifier = Modifier.width(4.dp))
+//                        }
+//                        Text(text, style = MaterialTheme.typography.bodyMedium) // Use theme typography
+//                    }
+//                }
+//            }
+//
+//            TabButton(
+//                text = "Issues",
+//                isSelected = currentSelectedTab == "Issues",
+//                onClick = { onTabSelected("Issues") }
+//            )
+//            TabButton(
+//                text = "Tasks",
+//                isSelected = currentSelectedTab == "Tasks",
+//                onClick = { onTabSelected("Tasks") }
+//            )
+//        }
+
+
+//        // Content based on selected tab
+//        Box(modifier = Modifier.padding(top = 8.dp)) {
+//            when (currentSelectedTab) {
+//                // *** Update Issues tab to call IssueList ***
+//                "Issues" -> IssueList(
+//                    issues = issues,
+//                    onNavigateToEdit = onNavigateToEditIssue // Pass the navigation callback
+//                )
+//                "Tasks" -> TaskList(
+//                    tasks = tasks,
+//                    onNavigateToDetail = { task ->
+//                        navController.navigate(Screen.TaskDetail.createRoute(task.taskId))
+//                    },
+//                    onEditTask = { task ->
+//                        navController.navigate(Screen.AddEditTask.createRoute(departmentId, task.taskId))
+//                    },
+//                    onTaskCompletedChanged = onTaskCompletedChanged
+//                )
+//            }
+//        }
     }
 }
 
 @Composable
-fun IssueList(issues: List<String>, onNavigateToDetail: (String) -> Unit) {
-    LazyColumn {
-        items(issues) { issue ->
-            Text(
-                text = "Issue: $issue",
-                modifier = Modifier
-                    .padding(16.dp)
-                    .clickable { onNavigateToDetail(issue) }
-            )
+fun IssueList(
+    issues: List<Issue>,
+    onNavigateToEdit: (Issue) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val itemHeight = 80.dp
+    if (issues.isEmpty()) {
+        Text(
+            text = "No issues reported yet. Tap 'Add New Issue' to create one.",
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodyMedium
+        )
+    } else {
+        Column(modifier = modifier) {
+            issues.forEach { issue -> // Use key for better performance
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(itemHeight)
+                        .clickable { onNavigateToEdit(issue) } // Click row to edit
+                        .padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(vertical = 8.dp),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = issue.issueTitle,
+                            style = typography.titleMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            text = issue.issueDescription,
+                            style = typography.bodySmall,
+                            color = Color.Gray,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                    }
+                    // Optional: Add explicit edit or delete icons if preferred over clicking row
+                    /*
+                    IconButton(onClick = { onNavigateToEdit(issue) }) {
+                        Icon(imageVector = Icons.Filled.Edit, contentDescription = "Edit Issue", modifier = Modifier.size(20.dp))
+                    }
+                    */
+                }
+                HorizontalDivider(thickness = 1.dp, color = Color.LightGray.copy(alpha = 0.5f))
+            }
         }
     }
 }
@@ -700,46 +875,77 @@ fun TaskList(
     tasks: List<Task>,
     onNavigateToDetail: (Task) -> Unit,
     onEditTask: (Task) -> Unit,
-    onTaskCompletedChanged: (Task, Boolean) -> Unit
+    onTaskCompletedChanged: (Task, Boolean) -> Unit,
+    modifier: Modifier = Modifier // *** MODIFIED *** Accept modifier
 ) {
-    LazyColumn {
-        items(tasks) { task ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(4.dp)
-                    .clickable { onNavigateToDetail(task) },
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Checkbox(
-                    checked = task.isCompleted,
-                    onCheckedChange = { isChecked ->
-                        onTaskCompletedChanged(task, isChecked)
+    val itemHeight = 80.dp
+    if (tasks.isEmpty()) {
+        // Display this text when there are no tasks
+        Text(
+            text = "No tasks assigned yet. Tap 'Add New Task' to create one.", // <-- This message is for empty tasks
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodyMedium // Ensure MaterialTheme is imported
+        )
+    } else {
+        Column(modifier = modifier) {
+            tasks.forEach { task ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(itemHeight)
+                        .padding(horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = task.isCompleted,
+                        onCheckedChange = { isChecked ->
+                            onTaskCompletedChanged(task, isChecked)
+                        }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onNavigateToDetail(task) }
+                            .padding(vertical = 8.dp),
+                        verticalArrangement = Arrangement.Center
+                    ){
+                        Text(
+                            text = task.taskTitle,
+                            style = typography.titleMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = task.taskDescription.ifBlank { "" },
+                            style = typography.bodySmall,
+                            color = Color.Gray,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(onClick = { onEditTask(task) }) {
+                        Icon(
+                            imageVector = Icons.Filled.Edit,
+                            contentDescription = "Edit Task",
+                            modifier = Modifier.size(20.dp))
+                    }
+                }
+                HorizontalDivider(
+                    modifier = Modifier.padding(2.dp),
+                    thickness = 1.dp,
+                    color = Color.LightGray
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = task.taskTitle
-                    )
-                    Text(
-                        text = task.taskDescription
-                    )
-                }
-                IconButton(onClick = { onEditTask(task) }) {
-                    Icon(imageVector = Icons.Filled.Edit, contentDescription = "Edit Task")
-                }
             }
-            HorizontalDivider(
-                modifier = Modifier.padding(2.dp),
-                thickness = 1.dp,
-                color = Color.LightGray
-            )
         }
     }
 }
 
-/*
+
+
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
@@ -751,9 +957,8 @@ fun GreetingPreview() {
         )
     }
 }
-*/
 
-
+/*
 @Preview(showBackground = true)
 @Composable
 fun GreetingaPreview() {
@@ -763,3 +968,4 @@ fun GreetingaPreview() {
         )
     }
 }
+*/
