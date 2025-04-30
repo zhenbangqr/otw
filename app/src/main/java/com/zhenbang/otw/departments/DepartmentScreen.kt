@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -163,11 +164,24 @@ fun DepartmentListScreen(navController: NavController) {
     val context = LocalContext.current
     val departmentViewModel: DepartmentViewModel =
         viewModel(factory = DepartmentViewModel.Factory(context))
-    val departments = departmentViewModel.allDepartments.collectAsState(initial = emptyList())
+    val departmentsFlow = departmentViewModel.allDepartments
     var showDialog by remember { mutableStateOf(false) }
     var departmentName by remember { mutableStateOf("") }
     var imageUrl by remember { mutableStateOf("") }
     var isGridView by remember { mutableStateOf(true) }
+    var isSortAscending by remember { mutableStateOf(true) }
+
+    val sortedDepartments by departmentsFlow.collectAsState(initial = emptyList()).let { state ->
+        remember(state.value, isSortAscending) {
+            mutableStateOf(
+                if (isSortAscending) {
+                    state.value.sortedBy { it.departmentName.lowercase() }
+                } else {
+                    state.value.sortedByDescending { it.departmentName.lowercase() }
+                }
+            )
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -198,8 +212,15 @@ fun DepartmentListScreen(navController: NavController) {
                     .fillMaxWidth()
                     .padding(top = 83.dp)
                     .padding(8.dp),
-                horizontalArrangement = Arrangement.End
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { isSortAscending = !isSortAscending }) {
+                        Icon(Icons.Filled.Sort, contentDescription = "Sort")
+                    }
+                    Text(text = "Sort")
+                }
                 IconButton(onClick = { isGridView = !isGridView }) {
                     Icon(
                         imageVector = if (isGridView) Icons.Filled.GridView else Icons.Filled.List,
@@ -221,7 +242,7 @@ fun DepartmentListScreen(navController: NavController) {
                     .padding(paddingValues)
                     .padding(8.dp)
             ) {
-                items(departments.value) { department ->
+                items(sortedDepartments) { department ->
                     Card(
                         modifier = Modifier
                             .padding(8.dp)
@@ -262,7 +283,7 @@ fun DepartmentListScreen(navController: NavController) {
                     .padding(paddingValues)
                     .padding(8.dp)
             ) {
-                items(departments.value) { department ->
+                items(sortedDepartments) { department ->
                     Card(
                         modifier = Modifier
                             .padding(8.dp)
@@ -718,6 +739,7 @@ fun TaskList(
     }
 }
 
+/*
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
@@ -729,8 +751,9 @@ fun GreetingPreview() {
         )
     }
 }
+*/
 
-/*
+
 @Preview(showBackground = true)
 @Composable
 fun GreetingaPreview() {
@@ -740,4 +763,3 @@ fun GreetingaPreview() {
         )
     }
 }
-*/
