@@ -37,6 +37,8 @@ import com.zhenbang.otw.register.RegisterViewModel
 import com.zhenbang.otw.mainPage.MainPageScreen
 import com.zhenbang.otw.departments.DepartmentDetailsScreen
 import com.zhenbang.otw.departments.DepartmentListScreen
+import com.zhenbang.otw.departments.DepartmentViewModel
+import com.zhenbang.otw.departments.Screen
 import com.zhenbang.otw.tasks.AddEditTaskScreen
 import com.zhenbang.otw.tasks.TaskDetailScreen
 import com.zhenbang.otw.tasks.TaskViewModel
@@ -45,6 +47,9 @@ import com.zhenbang.otw.issues.IssueViewModel
 import com.zhenbang.otw.profile.language.LanguageScreen
 import com.zhenbang.otw.profile.manageAccount.ManageAccountScreen
 import com.zhenbang.otw.profile.privacy.PrivacyScreen
+import com.zhenbang.otw.ui.screen.HomeScreen
+import com.zhenbang.otw.ui.viewmodel.NewsViewModel
+import com.zhenbang.otw.ui.viewmodel.WeatherViewModel
 
 
 // --- Unified Destinations ---
@@ -378,24 +383,34 @@ fun AppNavigation() {
             PrivacyScreen(navController = navController)
         }
 
-        // --- Main Page Screen ---
+        // --- *** Replace MainPageScreen with HomeScreen *** ---
         composable(route = AppDestinations.MAIN_PAGE_ROUTE) {
-            MainPageScreen(
+            val newsViewModel: NewsViewModel = viewModel()
+            val weatherViewModel: WeatherViewModel = viewModel()
+            val departmentViewModel: DepartmentViewModel = viewModel(factory = DepartmentViewModel.Factory(context))
+            // Call the new HomeScreen
+            HomeScreen(
+                profileViewModel = profileViewModel,
+                newsViewModel = newsViewModel,
+                weatherViewModel = weatherViewModel,
+                departmentViewModel = departmentViewModel,
                 onNavigateToProfile = { navController.navigate(AppDestinations.PROFILE_ROUTE) },
-                // Navigate to Department List from Main Page's "Workspace" action
-                onNavigateToWorkspace = { navController.navigate(AppDestinations.DEPARTMENT_LIST_ROUTE) },
-                onLogout = performLogout
+
+                onNavigateToNotifications = {
+                    // TODO: Define Notifications route in AppDestinations and navigate
+                    Log.d("AppNavigation", "Navigate to Notifications clicked (Not Implemented)")
+                    // navController.navigate("notifications_route") // Example
+                },
+                onNavigateToDepartmentDetails = { deptId, deptName ->
+                    navController.navigate(
+                        Screen.DepartmentDetails.createRoute(deptId, deptName) // Use Screen object from departments package
+                    )
+                }
+                // Note: Logout is not directly on HomeScreen, assumed handled via Profile/Settings
             )
         }
 
         // --- *** Department Feature Screens Integrated Here *** ---
-
-        // Department List Screen
-        composable(route = AppDestinations.DEPARTMENT_LIST_ROUTE) {
-            // ViewModel initialized inside the screen
-            DepartmentListScreen(navController = navController)
-        }
-
         // Department Details Screen
         composable(
             route = AppDestinations.DEPARTMENT_DETAILS_ROUTE,

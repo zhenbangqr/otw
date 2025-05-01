@@ -55,7 +55,6 @@ dependencies {
     //View Model and Lifecycle
     implementation(libs.androidx.lifecycle.runtime.ktx.v280)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
-    implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.coil.compose)
 
     implementation(libs.androidx.core.ktx)
@@ -100,7 +99,6 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.material.iconsExtended)
 
-    // --- Testing ---
     val room_version = "2.6.1"
     implementation("com.google.firebase:firebase-storage-ktx")
     implementation("io.coil-kt:coil-compose:2.6.0")
