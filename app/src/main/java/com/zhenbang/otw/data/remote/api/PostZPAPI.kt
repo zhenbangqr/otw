@@ -1,5 +1,7 @@
-package com.zhenbang.otw.zpApi
+package com.zhenbang.otw.data.remote.api
 
+import com.zhenbang.otw.data.model.RequestZPAPI
+import com.zhenbang.otw.data.model.ResponseZPAPI
 import retrofit2.http.Body
 import retrofit2.http.POST
 

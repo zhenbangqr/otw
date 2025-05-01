@@ -1,5 +1,6 @@
-package com.zhenbang.otw.zpApi
+package com.zhenbang.otw.data.remote
 
+import com.zhenbang.otw.data.remote.api.PostZPAPI
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -11,7 +12,7 @@ object InstanceZPAPI {
 
     // --- Constants ---
     private const val BASE_URL = "https://open.bigmodel.cn/api/paas/"
-    private const val API_KEY = "98c677fe0b1e40cab727982f2b5bbebc.69J7eNuV72B6hygo"
+    private const val API_KEY = "7cf86bc2e27445b6accf465c5ed10478.y3ZxmbqCCdY0ln2q"
     private const val CONNECT_TIMEOUT_SECONDS = 30L
     private const val READ_TIMEOUT_SECONDS = 30L
     private const val AUTHORIZATION_HEADER = "Authorization"

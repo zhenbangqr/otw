@@ -1,6 +1,6 @@
-package com.zhenbang.otw.weatherApi
+package com.zhenbang.otw.data.remote.api
 
-import com.zhenbang.otw.newsApi.ResponseNews
+import com.zhenbang.otw.data.model.ResponseWeatherAPI
 import retrofit2.http.GET // Use GET for fetching news usually
 import retrofit2.http.Query // Needed for API key/parameters
 

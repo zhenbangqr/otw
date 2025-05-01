@@ -1,4 +1,4 @@
-package com.zhenbang.otw.weatherApi // Adjust package as needed
+package com.zhenbang.otw.ui.screen // Adjust package as needed
 
 // --- Necessary Imports ---
 import androidx.compose.foundation.layout.*
@@ -6,18 +6,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage // For displaying images from URL
-import coil.request.ImageRequest // For Coil image requests
-// Import the CORRECT data model matching the JSON structure
-// Import your common UiState definition
-// Import the ViewModel
-import com.zhenbang.otw.weatherApi.ViewModelWeather
 import android.util.Log // For logging
+import androidx.compose.ui.tooling.preview.Preview
+import com.zhenbang.otw.data.model.ResponseWeatherAPI
+import com.zhenbang.otw.ui.theme.OnTheWayTheme
+import com.zhenbang.otw.ui.viewmodel.ViewModelWeather
+import com.zhenbang.otw.util.UiState
 
 @Composable
 fun ScreenWeather(
@@ -169,5 +167,13 @@ fun WeatherDetails(data: ResponseWeatherAPI) { // Parameter must be WeatherApiRe
             text = "Last Updated: ${lastUpdated ?: "--"}",
             style = MaterialTheme.typography.bodySmall
         )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun WeatherScreenPreview() {
+    OnTheWayTheme {
+        ScreenWeather()
     }
 }

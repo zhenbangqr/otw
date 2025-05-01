@@ -7,14 +7,12 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import com.zhenbang.otw.ui.screen.HomeScreen
+import com.zhenbang.otw.ui.screen.ScreenZPAPI
 import com.zhenbang.otw.ui.theme.OnTheWayTheme
-import com.zhenbang.otw.newsApi.NewsScreen
-import com.zhenbang.otw.weatherApi.ScreenWeather
-import com.zhenbang.otw.zpApi.ScreenZPAPI
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -23,7 +21,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             OnTheWayTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    ScreenWeather(modifier = Modifier.padding(innerPadding)
+//                    ScreenZPAPI(modifier = Modifier.padding(innerPadding)
+                    HomeScreen(modifier = Modifier.padding(innerPadding)
                     )
                 }
             }
@@ -35,6 +34,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ScreenPreview() {
     OnTheWayTheme {
-        NewsScreen()
+        HomeScreen()
     }
 }

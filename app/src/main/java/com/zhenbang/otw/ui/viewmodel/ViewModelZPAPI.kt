@@ -1,4 +1,4 @@
-package com.zhenbang.otw.zpApi
+package com.zhenbang.otw.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,14 +8,11 @@ import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import java.io.IOException
 import android.util.Log // Import Log for logging
-
-// --- Define UI State  ---
-sealed interface UiState<out T> {
-    data object Idle : UiState<Nothing>
-    data class Success<T>(val data: T) : UiState<T>
-    data class Error(val message: String) : UiState<Nothing>
-    data object Loading : UiState<Nothing>
-}
+import com.zhenbang.otw.data.model.RequestMessage
+import com.zhenbang.otw.data.model.RequestZPAPI
+import com.zhenbang.otw.data.model.ResponseZPAPI
+import com.zhenbang.otw.data.remote.InstanceZPAPI
+import com.zhenbang.otw.util.UiState
 
 // --- The ViewModel Class Definition ---
 class ViewModelZPAPI : ViewModel() { // Your class must inherit from ViewModel

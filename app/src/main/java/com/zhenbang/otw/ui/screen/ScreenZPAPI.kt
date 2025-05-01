@@ -1,4 +1,4 @@
-package com.zhenbang.otw.zpApi
+package com.zhenbang.otw.ui.screen
 
 import android.util.Log
 import androidx.compose.foundation.layout.Box
@@ -23,8 +23,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.zhenbang.otw.ui.theme.OnTheWayTheme
+import com.zhenbang.otw.ui.viewmodel.ViewModelZPAPI
+import com.zhenbang.otw.util.UiState
 
 @Composable
 fun ScreenZPAPI(
@@ -112,5 +116,13 @@ fun ScreenZPAPI(
                 }
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ZPAPIScreenPreview() {
+    OnTheWayTheme {
+        ScreenZPAPI()
     }
 }

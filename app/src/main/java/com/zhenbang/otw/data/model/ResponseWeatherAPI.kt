@@ -1,4 +1,4 @@
-package com.zhenbang.otw.weatherApi // Adjust package as needed
+package com.zhenbang.otw.data.model // Adjust package as needed
 
 import com.google.gson.annotations.SerializedName
 

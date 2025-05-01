@@ -1,4 +1,4 @@
-package com.zhenbang.otw.zpApi
+package com.zhenbang.otw.data.model
 
 import com.google.gson.annotations.SerializedName
 
