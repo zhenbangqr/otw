@@ -29,7 +29,8 @@ class IssueViewModel(private val repository: IssueRepository) : ViewModel() {
             issue.copy(
                 issueTitle = issue.issueTitle.trim(),
                 issueDescription = issue.issueDescription.trim(),
-                creationTimestamp = System.currentTimeMillis()
+                creationTimestamp = System.currentTimeMillis(),
+                creatorEmail = issue.creatorEmail
             )
         } else {
             issue.copy(

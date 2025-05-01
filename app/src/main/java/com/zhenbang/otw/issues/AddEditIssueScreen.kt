@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel // Import viewModel
 import androidx.navigation.NavController
+import com.google.firebase.auth.FirebaseAuth
 import com.zhenbang.otw.database.Issue // Import your Issue entity
 
 @Composable
@@ -27,16 +28,19 @@ fun AddEditIssueScreen(
 ) {
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
+    val currentUserEmail = FirebaseAuth.getInstance().currentUser?.email
     val issueToEditState by issueViewModel.getIssueById(issueId).collectAsState(initial = null)
     val issueToEdit = remember(issueToEditState) { issueToEditState }
 
 
     // Pre-fill fields if editing an existing issue
     LaunchedEffect(issueToEdit) {
+        // Only pre-fill if issueToEdit is not null and issueId indicates editing
         if (issueToEdit != null && issueId != -1) {
             title = issueToEdit.issueTitle
             description = issueToEdit.issueDescription
         } else {
+            // Reset fields if navigating back to 'Add New' from 'Edit' or if issue data is cleared
             title = ""
             description = ""
         }
@@ -83,11 +87,13 @@ fun AddEditIssueScreen(
                         issueTitle = title,
                         issueDescription = description,
 
-                        creationTimestamp = issueToEdit?.creationTimestamp ?: currentTimestamp
+                        creationTimestamp = issueToEdit?.creationTimestamp ?: currentTimestamp,
+                        creatorEmail = currentUserEmail
                     )
                     issueViewModel.upsertIssue(issue)
                     navController.popBackStack()
                 }
+                // Optional: Add user feedback (e.g., Toast/Snackbar) if fields are blank
             }) {
                 Icon(Icons.Filled.Check, contentDescription = "Save Issue")
             }
@@ -99,9 +105,11 @@ fun AddEditIssueScreen(
                     .fillMaxSize()
                     .padding(16.dp),
             ) {
+                // Style similar to AddEditTaskScreen
                 val textFieldColors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color.Transparent,
                     unfocusedBorderColor = Color.Transparent,
+                    // Add other color customizations if needed
                 )
 
                 OutlinedTextField(

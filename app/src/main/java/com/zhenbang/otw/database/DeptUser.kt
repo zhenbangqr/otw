@@ -7,7 +7,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(
-    tableName = "tasks",
+    tableName = "deptUsers",
     foreignKeys = [
         ForeignKey(
             entity = Department::class,
@@ -16,16 +16,16 @@ import androidx.room.PrimaryKey
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index("departmentId")]
+    indices = [
+        Index("departmentId"),
+        Index(value = ["userEmail", "departmentId"], unique = true)
+    ]
 )
-data class Task(
+data class DeptUser(
     @PrimaryKey(autoGenerate = true)
-    val taskId: Int = 0,
-    val taskTitle: String = "",
-    val taskDescription: String = "",
-    val isCompleted: Boolean = false,
+    val deptUserId: Int = 0,
+    val userEmail: String,
     @ColumnInfo(name = "departmentId")
     val departmentId: Int,
-    val creationTimestamp: Long = System.currentTimeMillis(),
-    val creatorEmail: String? = null,
+    val creationTimestamp: Long = System.currentTimeMillis()
 )
