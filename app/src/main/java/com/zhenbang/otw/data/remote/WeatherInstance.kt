@@ -1,23 +1,24 @@
 package com.zhenbang.otw.data.remote
 
-import com.zhenbang.otw.data.remote.api.PostNewsAPI
+import com.zhenbang.otw.data.remote.api.WeatherApi
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
-object InstanceNews {
+object WeatherInstance {
 
-    private const val NEWS_BASE_URL = "https://newsdata.io/api/1/" // News API Base URL
+    private const val NEWS_BASE_URL = "https://api.weatherapi.com/v1/" // News API Base URL
     private const val CONNECT_TIMEOUT_SECONDS = 30L
     private const val READ_TIMEOUT_SECONDS = 30L
+
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
     }
 
-    // No specific auth interceptor needed IF using the apikey query parameter method
+    // --- OkHttpClient ---
     private val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
@@ -35,7 +36,7 @@ object InstanceNews {
     }
 
     // Creates implementation of the PostNewsAPI (or NewsApiService) interface
-    val api: PostNewsAPI by lazy {
-        retrofit.create(PostNewsAPI::class.java)
+    val api: WeatherApi by lazy {
+        retrofit.create(WeatherApi::class.java)
     }
 }

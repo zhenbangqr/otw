@@ -9,20 +9,20 @@ import retrofit2.HttpException
 import java.io.IOException
 import android.util.Log // Import Log for logging
 import com.zhenbang.otw.data.model.RequestMessage
-import com.zhenbang.otw.data.model.RequestZPAPI
-import com.zhenbang.otw.data.model.ResponseZPAPI
-import com.zhenbang.otw.data.remote.InstanceZPAPI
+import com.zhenbang.otw.data.model.ZpResponse
+import com.zhenbang.otw.data.model.ZpRequest
+import com.zhenbang.otw.data.remote.ZpInstance
 import com.zhenbang.otw.util.UiState
 
 // --- The ViewModel Class Definition ---
-class ViewModelZPAPI : ViewModel() { // Your class must inherit from ViewModel
+class ZpViewModel : ViewModel() { // Your class must inherit from ViewModel
 
     // --- 1. State Holder ---
     // Use StateFlow to hold the state that the UI will observe.
     // Initialize it with a default state (e.g., Loading or an initial empty state).
     private val _apiDataState =
-        MutableStateFlow<UiState<ResponseZPAPI>>(UiState.Idle) // <-- INITIAL STATE
-    val apiDataState: StateFlow<UiState<ResponseZPAPI>> = _apiDataState
+        MutableStateFlow<UiState<ZpResponse>>(UiState.Idle) // <-- INITIAL STATE
+    val apiDataState: StateFlow<UiState<ZpResponse>> = _apiDataState
 
     // --- 2. Function to Trigger the API Call ---
     // Place the API call logic inside a function.
@@ -34,7 +34,7 @@ class ViewModelZPAPI : ViewModel() { // Your class must inherit from ViewModel
         viewModelScope.launch {
             try {
                 // Construct the request payload using the correct class name
-                val request = RequestZPAPI(
+                val request = ZpRequest(
                     model = "glm-4-flash", // Replace with your actual model code/constant
                     messages = listOf(
                         RequestMessage(role = "user", content = promptContent)
@@ -42,7 +42,7 @@ class ViewModelZPAPI : ViewModel() { // Your class must inherit from ViewModel
                 )
 
                 // Make the API call using your Retrofit instance and service
-                val response: ResponseZPAPI = InstanceZPAPI.api.postApiData(request)
+                val response: ZpResponse = ZpInstance.api.postApiData(request)
 
                 // Update state to Success with the received data
                 _apiDataState.value = UiState.Success(response)

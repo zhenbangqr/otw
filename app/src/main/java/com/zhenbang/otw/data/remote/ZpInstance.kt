@@ -1,6 +1,6 @@
 package com.zhenbang.otw.data.remote
 
-import com.zhenbang.otw.data.remote.api.PostZPAPI
+import com.zhenbang.otw.data.remote.api.ZpApi
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -8,7 +8,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
-object InstanceZPAPI {
+object ZpInstance {
 
     // --- Constants ---
     private const val BASE_URL = "https://open.bigmodel.cn/api/paas/"
@@ -52,7 +52,7 @@ object InstanceZPAPI {
     }
 
     // --- API Service ---
-    val api: PostZPAPI by lazy {
-        retrofit.create(PostZPAPI::class.java)
+    val api: ZpApi by lazy {
+        retrofit.create(ZpApi::class.java)
     }
 }

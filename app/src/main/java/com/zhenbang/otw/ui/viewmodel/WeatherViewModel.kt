@@ -10,16 +10,16 @@ import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import java.io.IOException
 import android.util.Log
-import com.zhenbang.otw.data.model.ResponseWeatherAPI
-import com.zhenbang.otw.data.remote.InstanceWeather
+import com.zhenbang.otw.data.model.WeatherResponse
+import com.zhenbang.otw.data.remote.WeatherInstance
 import com.zhenbang.otw.util.UiState
 
-class ViewModelWeather : ViewModel() {
+class WeatherViewModel : ViewModel() {
 
     // State holds the full API response for the Success case
     // Use the correct Response type from the 'weather_data_models' artifact
-    private val _weatherState = MutableStateFlow<UiState<ResponseWeatherAPI>>(UiState.Idle)
-    val weatherState: StateFlow<UiState<ResponseWeatherAPI>> = _weatherState
+    private val _weatherState = MutableStateFlow<UiState<WeatherResponse>>(UiState.Idle)
+    val weatherState: StateFlow<UiState<WeatherResponse>> = _weatherState
 
     // --- ADD init block for automatic fetch ---
     init {
@@ -46,7 +46,7 @@ class ViewModelWeather : ViewModel() {
 
                 // Call the GET method from WeatherRetrofitInstance
                 // Ensure WeatherApiService returns WeatherApiResponse
-                val response = InstanceWeather.api.getCurrentWeather(
+                val response = WeatherInstance.api.getCurrentWeather(
                     location = location
                     // apiKey is handled by default value in interface using BuildConfig
                 )

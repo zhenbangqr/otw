@@ -1,11 +1,11 @@
 package com.zhenbang.otw.data.remote.api
 
-import com.zhenbang.otw.data.model.ResponseNews
-import retrofit2.http.GET // Use GET for fetching news usually
-import retrofit2.http.Query // Needed for API key/parameters
+import com.zhenbang.otw.data.model.NewsResponse
+import retrofit2.http.GET
+import retrofit2.http.Query
 
 // Consider renaming interface to NewsApiService for clarity
-interface PostNewsAPI {
+interface NewsApi {
 
     @GET("latest") // The endpoint path from the example URL
     suspend fun getNews(
@@ -19,5 +19,5 @@ interface PostNewsAPI {
         @Query("language") language: String? = null,
         @Query("domain") domain: String? = null // 0 or 1? Check docs
         // Add other query parameters as needed
-    ): ResponseNews // Return your response data class
+    ): NewsResponse // Return your response data class
 }

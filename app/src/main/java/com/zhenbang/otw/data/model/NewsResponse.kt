@@ -3,7 +3,7 @@ package com.zhenbang.otw.data.model
 import com.google.gson.annotations.SerializedName
 
 // Renamed from NewsApiResponse to match user's naming
-data class ResponseNews(
+data class NewsResponse(
     val status: String,
     val totalResults: Int,
     // 'results' contains the list of articles

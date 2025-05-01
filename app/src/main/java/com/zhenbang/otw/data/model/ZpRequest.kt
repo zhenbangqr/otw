@@ -7,7 +7,7 @@ import com.google.gson.annotations.SerializedName
  * Contains all configurable parameters for the API call.
  */
 
-data class RequestZPAPI(
+data class ZpRequest(
 
     @SerializedName("model")
     val model: String,

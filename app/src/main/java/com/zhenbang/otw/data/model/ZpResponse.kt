@@ -2,7 +2,7 @@ package com.zhenbang.otw.data.model
 
 import com.google.gson.annotations.SerializedName
 
-data class ResponseZPAPI(
+data class ZpResponse(
     val choices: List<Choice>,
     val created: Long,
     val id: String,

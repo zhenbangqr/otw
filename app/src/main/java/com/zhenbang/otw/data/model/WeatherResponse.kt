@@ -3,7 +3,7 @@ package com.zhenbang.otw.data.model // Adjust package as needed
 import com.google.gson.annotations.SerializedName
 
 // Top-level response object matching the JSON structure
-data class ResponseWeatherAPI(
+data class WeatherResponse(
     val location: Location?, // Matches "location": { ... }
     val current: CurrentWeather? // Matches "current": { ... }
 )

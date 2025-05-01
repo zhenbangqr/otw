@@ -27,16 +27,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zhenbang.otw.ui.theme.OnTheWayTheme
-import com.zhenbang.otw.ui.viewmodel.ViewModelZPAPI
+import com.zhenbang.otw.ui.viewmodel.ZpViewModel
 import com.zhenbang.otw.util.UiState
 
 @Composable
 fun ScreenZPAPI(
     modifier: Modifier = Modifier,
-    viewModelZPAPI: ViewModelZPAPI = viewModel() // Get instance of MainViewModel
+    zpViewModel: ZpViewModel = viewModel() // Get instance of MainViewModel
 ) {
     // 1. Observe the API state from the ViewModel
-    val apiState by viewModelZPAPI.apiDataState.collectAsState()
+    val apiState by zpViewModel.apiDataState.collectAsState()
 
     // 2. State for the user's input text field
     var inputText by remember { mutableStateOf("") }
@@ -71,7 +71,7 @@ fun ScreenZPAPI(
             onClick = {
                 // Call the ViewModel function when button is clicked
                 if (inputText.isNotBlank()) {
-                    viewModelZPAPI.fetchDataFromApi(inputText)
+                    zpViewModel.fetchDataFromApi(inputText)
                 }
                 inputText = "" // Clear input after sending
             },

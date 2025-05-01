@@ -9,11 +9,11 @@ import retrofit2.HttpException
 import java.io.IOException
 import android.util.Log // Import Log for logging
 import com.zhenbang.otw.data.model.NewsArticle
-import com.zhenbang.otw.data.model.ResponseNews
-import com.zhenbang.otw.data.remote.InstanceNews
+import com.zhenbang.otw.data.model.NewsResponse
+import com.zhenbang.otw.data.remote.NewsInstance
 import com.zhenbang.otw.util.UiState
 
-class ViewModelNews : ViewModel() {
+class NewsViewModel : ViewModel() {
 
     // State holds list of articles for the Success case
     private val _newsState = MutableStateFlow<UiState<List<NewsArticle>>>(UiState.Idle)
@@ -39,7 +39,7 @@ class ViewModelNews : ViewModel() {
                 Log.d("ViewModelNews", "Fetching news...")
 
                 // Call the GET method from NewsRetrofitInstance
-                val response: ResponseNews = InstanceNews.api.getNews(
+                val response: NewsResponse = NewsInstance.api.getNews(
                     // apiKey is handled by default value in interface
                     query = query,
                     country = country,
