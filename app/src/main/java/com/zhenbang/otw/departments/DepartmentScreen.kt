@@ -1,5 +1,7 @@
 package com.zhenbang.otw.departments
 
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,16 +31,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
@@ -47,6 +50,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MaterialTheme.typography
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -54,8 +58,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,28 +72,23 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import androidx.navigation.NavType
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
 import coil.compose.AsyncImage
+import com.google.firebase.auth.FirebaseAuth
+import com.zhenbang.otw.data.AuthRepository
+import com.zhenbang.otw.data.FirebaseAuthRepository
 import com.zhenbang.otw.database.Department
-import com.zhenbang.otw.database.Task
-import com.zhenbang.otw.issues.AddEditIssueScreen
-import com.zhenbang.otw.issues.IssueViewModel
-import com.zhenbang.otw.tasks.AddEditTaskScreen
-import com.zhenbang.otw.tasks.TaskDetailScreen
-import com.zhenbang.otw.tasks.TaskViewModel
-import com.zhenbang.otw.ui.theme.OnTheWayTheme
 import com.zhenbang.otw.database.Issue
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.runtime.saveable.rememberSaveable
+import com.zhenbang.otw.database.Task
+import com.zhenbang.otw.issues.IssueViewModel
+import com.zhenbang.otw.tasks.TaskViewModel
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.launch
+
 
 sealed class Screen(val route: String) {
     object DepartmentList : Screen("department_list")
@@ -116,108 +118,34 @@ sealed class Screen(val route: String) {
     // }
 }
 
-//@Composable
-//fun DepartmentNavigation() {
-//    val navController = rememberNavController()
-//    NavHost(navController = navController, startDestination = Screen.DepartmentList.route) {
-//        composable(Screen.DepartmentList.route) {
-//            DepartmentListScreen(navController = navController)
-//        }
-//        composable(
-//            route = Screen.DepartmentDetails.route,
-//            arguments = listOf(
-//                navArgument("departmentId") { type = NavType.IntType },
-//                navArgument("departmentName") { type = NavType.StringType }
-//            )
-//        ) { backStackEntry ->
-//            val departmentId = backStackEntry.arguments?.getInt("departmentId") ?: 0
-//            val departmentName =
-//                backStackEntry.arguments?.getString("departmentName")?.replace("%2F", "/")
-//                    ?: "" // decode slashes
-//            DepartmentDetailsScreen(
-//                navController = navController,
-//                departmentId = departmentId,
-//                departmentName = departmentName,
-//            )
-//        }
-//        composable(
-//            route = Screen.TaskDetail.route,
-//            arguments = listOf(navArgument("taskId") { type = NavType.IntType })
-//        ) { backStackEntry ->
-//            val taskId = backStackEntry.arguments?.getInt("taskId") ?: 0
-//            val context = LocalContext.current
-//            val taskViewModel: TaskViewModel = viewModel(factory = TaskViewModel.Factory(context))
-//            TaskDetailScreen(
-//                navController = navController,
-//                taskViewModel = taskViewModel,
-//                taskId = taskId
-//            )
-//        }
-//        composable(
-//            route = Screen.AddEditTask.route,
-//            arguments = listOf(
-//                navArgument("departmentId") { type = NavType.IntType },
-//                navArgument("taskId") { type = NavType.IntType })
-//        ) { backStackEntry ->
-//            val departmentId = backStackEntry.arguments?.getInt("departmentId") ?: 0
-//            val taskId = backStackEntry.arguments?.getInt("taskId") ?: -1
-//            val context = LocalContext.current
-//            val taskViewModel: TaskViewModel = viewModel(factory = TaskViewModel.Factory(context))
-//            AddEditTaskScreen(
-//                navController = navController,
-//                departmentId = departmentId,
-//                taskViewModel = taskViewModel,
-//                taskId = taskId
-//            )
-//        }
-//
-//        // *** Add composable for AddEditIssueScreen ***
-//        composable(
-//            route = Screen.AddEditIssue.route,
-//            arguments = listOf(
-//                navArgument("departmentId") { type = NavType.IntType },
-//                navArgument("issueId") { type = NavType.IntType } // Use issueId here
-//            )
-//        ) { backStackEntry ->
-//            val context = LocalContext.current
-//            val departmentId = backStackEntry.arguments?.getInt("departmentId") ?: 0
-//            val issueId = backStackEntry.arguments?.getInt("issueId") ?: -1 // Default to -1 for "add"
-//            // Initialize IssueViewModel using its Factory
-//            val issueViewModel: IssueViewModel = viewModel(factory = IssueViewModel.Factory(context))
-//
-//            // Call the AddEditIssueScreen composable
-//            AddEditIssueScreen(
-//                navController = navController,
-//                departmentId = departmentId,
-//                issueViewModel = issueViewModel,
-//                issueId = issueId
-//            )
-//        }
-//
-//        // Optional: Add composable for IssueDetailScreen if you create one
-//        /*
-//        composable(
-//            route = Screen.IssueDetail.route,
-//            arguments = listOf(navArgument("issueId") { type = NavType.IntType })
-//        ) { backStackEntry ->
-//            val issueId = backStackEntry.arguments?.getInt("issueId") ?: 0
-//            val issueViewModel: IssueViewModel = viewModel(factory = IssueViewModel.Factory(context))
-//            // IssueDetailScreen(navController = navController, issueViewModel = issueViewModel, issueId = issueId)
-//        }
-//        */
-//    }
-//}
-
 @Composable
 fun DepartmentListScreen(navController: NavController) {
     val context = LocalContext.current
     val departmentViewModel: DepartmentViewModel =
         viewModel(factory = DepartmentViewModel.Factory(context))
-    val departments = departmentViewModel.allDepartments.collectAsState(initial = emptyList())
+    val userDepartments by departmentViewModel.userDepartments.collectAsState()
     var showDialog by rememberSaveable { mutableStateOf(false) }
     var departmentName by rememberSaveable { mutableStateOf("") }
     var imageUrl by rememberSaveable { mutableStateOf("") }
     var isGridView by rememberSaveable { mutableStateOf(true) }
+    val currentUserEmail = FirebaseAuth.getInstance().currentUser?.email
+    val coroutineScope = rememberCoroutineScope()
+
+    var isSortAscending by rememberSaveable { mutableStateOf(true) }
+    // Modify the displayed list based on the sorting state
+    val sortedDepartments = remember(userDepartments, isSortAscending) {
+        if (isSortAscending) {
+            userDepartments.sortedBy { it.departmentName.lowercase() }
+        } else {
+            userDepartments.sortedByDescending { it.departmentName.lowercase() }
+        }
+    }
+
+    LaunchedEffect(currentUserEmail) {
+        if (currentUserEmail != null) {
+            departmentViewModel.loadDepartmentsForCurrentUser(currentUserEmail)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -248,8 +176,15 @@ fun DepartmentListScreen(navController: NavController) {
                     .fillMaxWidth()
                     .padding(top = 83.dp)
                     .padding(8.dp),
-                horizontalArrangement = Arrangement.End
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { isSortAscending = !isSortAscending }) {
+                        Icon(Icons.Filled.Sort, contentDescription = "Sort")
+                    }
+                    Text(text = "Sort")
+                }
                 IconButton(onClick = { isGridView = !isGridView }) {
                     Icon(
                         imageVector = if (isGridView) Icons.Filled.GridView else Icons.Filled.List,
@@ -271,7 +206,7 @@ fun DepartmentListScreen(navController: NavController) {
                     .padding(paddingValues)
                     .padding(8.dp)
             ) {
-                items(departments.value) { department ->
+                items(sortedDepartments) { department ->
                     Card(
                         modifier = Modifier
                             .padding(8.dp)
@@ -301,7 +236,6 @@ fun DepartmentListScreen(navController: NavController) {
                             Text(
                                 text = department.departmentName, fontSize = 16.sp
                             )
-                            // Updated Status
                         }
                     }
                 }
@@ -312,7 +246,7 @@ fun DepartmentListScreen(navController: NavController) {
                     .padding(paddingValues)
                     .padding(8.dp)
             ) {
-                items(departments.value) { department ->
+                items(sortedDepartments) { department ->
                     Card(
                         modifier = Modifier
                             .padding(8.dp)
@@ -343,7 +277,6 @@ fun DepartmentListScreen(navController: NavController) {
                                 fontSize = 16.sp,
                                 modifier = Modifier.padding(start = 8.dp)
                             )
-                            // Updated Status
                         }
                     }
                 }
@@ -357,31 +290,55 @@ fun DepartmentListScreen(navController: NavController) {
             title = { Text("Add Department") },
             text = {
                 Column {
-                    TextField(
+                    OutlinedTextField(
                         value = departmentName,
                         onValueChange = { departmentName = it },
-                        label = { Text("Department Name") }
+                        label = { Text("Department Name") },
+                        isError = departmentName.isBlank(),
+                        singleLine = true
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    TextField(
+                    OutlinedTextField(
                         value = imageUrl,
                         onValueChange = { imageUrl = it },
-                        label = { Text("Image URL (Optional)") }
+                        label = { Text("Image URL (Optional)") },
+                        singleLine = true
                     )
                 }
             },
             confirmButton = {
-                Button(onClick = {
-                    if (departmentName.isNotEmpty()) {
-                        departmentViewModel.insertDepartment(
-                            departmentName = departmentName,
-                            imageUrl = imageUrl.trim()
-                        )
-                        departmentName = ""
-                        imageUrl = ""
-                        showDialog = false
+                Button(
+                    onClick = {
+                        val finalName = departmentName.trim()
+                        val finalImageUrl = imageUrl.trim().ifEmpty { null } // Use null if blank
+
+                        if (finalName.isNotEmpty()) {
+                            if (currentUserEmail != null) {
+                                coroutineScope.launch {
+                                    departmentViewModel.insertDepartment(
+                                        departmentName = finalName,
+                                        imageUrl = finalImageUrl,
+                                        creatorEmail = currentUserEmail
+                                    )
+                                    showDialog = false // Close dialog after success
+                                }
+                            } else {
+                                // Handle case where email is null (user not logged in?)
+                                Log.e("DepartmentListScreen", "Cannot add department: User email is null.")
+                                coroutineScope.launch {
+                                    Toast.makeText(context, "Error: Could not get user email. Please log in.", Toast.LENGTH_LONG).show()
+                                }
+                                // Keep dialog open or close it based on desired UX
+                                // showDialog = false
+                            }
+                        } else {
+                            // Optionally show message if name is empty
+                            coroutineScope.launch {
+                                Toast.makeText(context, "Department name cannot be empty.", Toast.LENGTH_SHORT).show()
+                            }
+                        }
                     }
-                }) {
+                ) {
                     Text("Add")
                 }
             },
@@ -406,6 +363,8 @@ fun DepartmentDetailsScreen(
     val departmentState: Department? by departmentViewModel.getDepartmentById(departmentId)
         .collectAsState(initial = null)
     val selectedTab by departmentViewModel.selectedTabFlow.collectAsState()
+    val currentUserEmail = FirebaseAuth.getInstance().currentUser?.email
+    val coroutineScope = rememberCoroutineScope()
 
     // Task ViewModel and Tasks
     val taskViewModel: TaskViewModel = viewModel(factory = TaskViewModel.Factory(context))
@@ -422,21 +381,34 @@ fun DepartmentDetailsScreen(
     var editedDepartmentName by rememberSaveable { mutableStateOf(departmentName) }
     var editedImageUrl by rememberSaveable { mutableStateOf(departmentState?.imageUrl ?: "") }
     var showDeleteConfirmationDialog by rememberSaveable { mutableStateOf(false) }
+    var showInviteDialog by rememberSaveable { mutableStateOf(false) }
+    var inviteEmail by rememberSaveable { mutableStateOf("") }
+    var inviteErrorMessage by rememberSaveable { mutableStateOf<String?>(null) }
+    var showRemoveDialog by rememberSaveable { mutableStateOf(false) } // New state for remove dialog
+    val authRepository: AuthRepository = remember { FirebaseAuthRepository() }
+
+    // State to hold the list of users in the department
+    val deptUsers by departmentViewModel.getDeptUsersByDepartmentId(departmentId)
+        .collectAsState(initial = emptyList())
+    var selectedUsersToRemove = remember { mutableStateListOf<String>() } // Emails of users to remove
 
     val onTaskCompleted: (Task, Boolean) -> Unit = { task, isCompleted ->
-        taskViewModel.updateTask(task, isCompleted)
+        taskViewModel.updateTaskCompletion(task, isCompleted)
     }
 
-//    LaunchedEffect(departmentState) {
-//        departmentState?.let {
-//            if (editedDepartmentName != it.departmentName) { // Avoid unnecessary updates if only state reference changed
-//                editedDepartmentName = it.departmentName
-//            }
-//            if (editedImageUrl != (it.imageUrl ?: "")) {
-//                editedImageUrl = it.imageUrl ?: ""
-//            }
-//        }
-//    }
+    val getAssignedUsersForTask: (Int) -> List<String> = remember {
+        { taskId ->
+            // Use taskViewModel to get the assigned users.
+            val assignedUsers = mutableStateOf<List<String>>(emptyList()) // Use a State to hold the result
+
+            coroutineScope.launch { // Launch a coroutine
+                //  Use .firstOrNull() to convert the Flow to a List
+                val result = taskViewModel.getAssignedUsersForTask(taskId).firstOrNull()?.map { it.userEmail } ?: emptyList()
+                assignedUsers.value = result // Update the State
+            }
+            assignedUsers.value //return the value of the state
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -464,6 +436,21 @@ fun DepartmentDetailsScreen(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false }
                     ) {
+                        DropdownMenuItem(
+                            text = { Text("Invite People") },
+                            onClick = {
+                                showInviteDialog = true
+                                showMenu = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Remove People") }, // New menu item
+                            onClick = {
+                                showRemoveDialog = true
+                                showMenu = false
+                                selectedUsersToRemove.clear() // Clear previous selections
+                            }
+                        )
                         DropdownMenuItem(
                             text = { Text("Edit Department") },
                             onClick = {
@@ -513,7 +500,6 @@ fun DepartmentDetailsScreen(
             modifier = Modifier
                 .padding(paddingValues)
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
         ) {
             Box(modifier = Modifier.height(240.dp)) {
                 AsyncImage(
@@ -547,21 +533,6 @@ fun DepartmentDetailsScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp) // Padding around tabs/list area
                     .fillMaxWidth()
             ) {
-//                TabbedContentSection(
-//                    issues = issues, // Pass the collected issues
-//                    tasks = tasks,
-//                    navController = navController,
-//                    currentSelectedTab = selectedTab,
-//                    onTabSelected = { newTabName ->
-//                        departmentViewModel.selectTab(newTabName)
-//                    },
-//                    departmentId = departmentId,
-//                    onTaskCompletedChanged = onTaskCompleted,
-//                    // Pass lambdas for issue actions if needed, or let IssueList handle clicks
-//                    onNavigateToEditIssue = { issue ->
-//                        navController.navigate(Screen.AddEditIssue.createRoute(departmentId, issue.issueId))
-//                    }
-//                )
                 TabbedContentSection(
                     issues = issues,
                     tasks = tasks,
@@ -577,10 +548,159 @@ fun DepartmentDetailsScreen(
                     onNavigateToTaskDetail = { task ->
                         navController.navigate(Screen.TaskDetail.createRoute(task.taskId))
                     },
-                    onNavigateToEditTask = { task ->
-                        navController.navigate(Screen.AddEditTask.createRoute(departmentId, task.taskId))
-                    },
+                    currentUserEmail = currentUserEmail, // Pass the current user's email
+                    assignedUsersForTask = getAssignedUsersForTask,
                     modifier = Modifier.fillMaxHeight()
+                )
+            }
+
+            if (showInviteDialog) {
+                AlertDialog(
+                    onDismissRequest = { showInviteDialog = false },
+                    title = { Text("Invite People to ${departmentState?.departmentName}") },
+                    text = {
+                        Column {
+                            TextField(
+                                value = inviteEmail,
+                                onValueChange = {
+                                    inviteEmail = it
+                                    inviteErrorMessage = null
+                                },
+                                label = { Text("Enter Email to Invite") },
+                                isError = inviteErrorMessage != null,
+                                supportingText = {
+                                    if (inviteErrorMessage != null) {
+                                        Text(
+                                            text = inviteErrorMessage!!,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                }
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                if (inviteEmail.isNotBlank()) {
+                                    val trimmedEmail = inviteEmail.trim()
+                                    if (trimmedEmail == departmentState?.creatorEmail) {
+                                        inviteErrorMessage = "Cannot invite the department creator."
+                                    } else if (deptUsers.any { it.userEmail == trimmedEmail }) {
+                                        inviteErrorMessage = "$trimmedEmail is already in the department."
+                                    } else {
+                                        coroutineScope.launch {
+                                            val result = authRepository.getUserByEmail(trimmedEmail)
+                                            result.onSuccess { userProfile ->
+                                                if (userProfile?.email != null) {
+                                                    departmentViewModel.insertDeptUser(
+                                                        departmentId,
+                                                        userProfile.email
+                                                    )
+                                                    Toast.makeText(
+                                                        context,
+                                                        "${userProfile.email} invited to the department.",
+                                                        Toast.LENGTH_SHORT
+                                                    ).show()
+                                                    inviteEmail = ""
+                                                    showInviteDialog = false
+                                                } else {
+                                                    inviteErrorMessage = "User with this email not found."
+                                                }
+                                            }.onFailure { error ->
+                                                inviteErrorMessage = "Failed to check user: ${error.message}"
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    inviteErrorMessage = "Please enter an email address."
+                                }
+                            },
+                            enabled = inviteEmail.isNotBlank()
+                        ) {
+                            Text("Invite")
+                        }
+                    },
+                    dismissButton = {
+                        Button(onClick = {
+                            showInviteDialog = false
+                            inviteEmail = "" // Clear email on cancel
+                            inviteErrorMessage = null // Clear any previous error
+                        }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
+            }
+
+            if (showRemoveDialog) {
+                AlertDialog(
+                    onDismissRequest = { showRemoveDialog = false },
+                    title = { Text("Remove People from ${departmentState?.departmentName}") },
+                    text = {
+                        Column {
+                            if (deptUsers.isEmpty()) {
+                                Text("No users in this department.")
+                            } else {
+                                LazyColumn(modifier = Modifier.fillMaxHeight(0.7f)) {
+                                    items(deptUsers.filter { it.userEmail != departmentState?.creatorEmail }) { deptUser ->
+                                        // Assuming DeptUser has a userEmail property
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    if (selectedUsersToRemove.contains(deptUser.userEmail)) {
+                                                        selectedUsersToRemove.remove(deptUser.userEmail)
+                                                    } else {
+                                                        selectedUsersToRemove.add(deptUser.userEmail)
+                                                    }
+                                                }
+                                                .padding(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Checkbox(
+                                                checked = selectedUsersToRemove.contains(deptUser.userEmail),
+                                                onCheckedChange = { isChecked ->
+                                                    if (isChecked) {
+                                                        selectedUsersToRemove.add(deptUser.userEmail)
+                                                    } else {
+                                                        selectedUsersToRemove.remove(deptUser.userEmail)
+                                                    }
+                                                }
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(deptUser.userEmail) // Display the user's email
+                                        }
+                                        Divider()
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                selectedUsersToRemove.forEach { emailToRemove ->
+                                    departmentViewModel.deleteDeptUser(departmentId, emailToRemove)
+                                }
+                                selectedUsersToRemove.clear()
+                                showRemoveDialog = false
+                                Toast.makeText(
+                                    context,
+                                    "Selected users removed from the department.",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            },
+                            enabled = selectedUsersToRemove.isNotEmpty()
+                        ) {
+                            Text("Remove")
+                        }
+                    },
+                    dismissButton = {
+                        Button(onClick = { showRemoveDialog = false }) {
+                            Text("Cancel")
+                        }
+                    }
                 )
             }
 
@@ -606,7 +726,7 @@ fun DepartmentDetailsScreen(
                     confirmButton = {
                         Button(
                             onClick = {
-                                if (editedDepartmentName.isNotBlank()) {
+                                if (editedDepartmentName.isNotBlank() && departmentState?.creatorEmail == currentUserEmail) {
                                     departmentState?.let {
                                         val updatedDepartment = it.copy(
                                             departmentName = editedDepartmentName.trim(),
@@ -615,6 +735,14 @@ fun DepartmentDetailsScreen(
                                         departmentViewModel.updateDepartment(updatedDepartment)
                                     }
                                     showEditDialog = false
+                                } else if (editedDepartmentName.isBlank()) {
+                                    coroutineScope.launch {
+                                        Toast.makeText(context, "Department name cannot be empty.", Toast.LENGTH_SHORT).show()
+                                    }
+                                } else {
+                                    coroutineScope.launch {
+                                        Toast.makeText(context, "Only Department Creator can Edit.", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
                             },
                             enabled = editedDepartmentName.isNotBlank()
@@ -639,9 +767,15 @@ fun DepartmentDetailsScreen(
                 confirmButton = {
                     Button(
                         onClick = {
-                            departmentState?.let { departmentViewModel.deleteDepartment(it) }
-                            navController.popBackStack()
-                            showDeleteConfirmationDialog = false
+                            if (departmentState?.creatorEmail == currentUserEmail) {
+                                departmentState?.let { departmentViewModel.deleteDepartment(it) }
+                                navController.popBackStack()
+                                showDeleteConfirmationDialog = false
+                            } else {
+                                coroutineScope.launch {
+                                    Toast.makeText(context, "Only Department Creator can Delete.", Toast.LENGTH_SHORT).show()
+                                }
+                            }
                         },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.Red,
@@ -663,14 +797,6 @@ fun DepartmentDetailsScreen(
 
 @Composable
 fun TabbedContentSection(
-//    issues: List<Issue>, // Add issues parameter
-//    tasks: List<Task>,
-//    navController: NavController,
-//    currentSelectedTab: String,
-//    onTabSelected: (String) -> Unit,
-//    departmentId: Int,
-//    onTaskCompletedChanged: (Task, Boolean) -> Unit,
-//    onNavigateToEditIssue: (Issue) -> Unit // Add callback for editing issues
     issues: List<Issue>,
     tasks: List<Task>,
     currentSelectedTab: String,
@@ -679,7 +805,8 @@ fun TabbedContentSection(
     onTaskCompletedChanged: (Task, Boolean) -> Unit,
     onNavigateToEditIssue: (Issue) -> Unit,
     onNavigateToTaskDetail: (Task) -> Unit, // Receive needed callbacks
-    onNavigateToEditTask: (Task) -> Unit, // Receive needed callbacks
+    currentUserEmail: String?,  // Receive the user email
+    assignedUsersForTask: (Int) -> List<String>,
     modifier: Modifier = Modifier // *** MODIFIED *** Accept modifier
 ) {
     Column(modifier = modifier) {
@@ -713,7 +840,7 @@ fun TabbedContentSection(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                         }
-                        Text(text, style = MaterialTheme.typography.bodyMedium) // Use theme typography
+                        Text(text, style = typography.bodyMedium) // Use theme typography
                     }
                 }
             }
@@ -738,74 +865,14 @@ fun TabbedContentSection(
                 "Tasks" -> TaskList(
                     tasks = tasks,
                     onNavigateToDetail = onNavigateToTaskDetail, // Use passed callback
-                    onEditTask = onNavigateToEditTask,         // Use passed callback
                     onTaskCompletedChanged = onTaskCompletedChanged,
+                    currentUserEmail = currentUserEmail, // Pass it down
+                    assignedUsersForTask = assignedUsersForTask,
                     // Pass modifier to allow filling the Box
 //                    modifier = Modifier.fillMaxSize() // *** MODIFIED ***
                 )
             }
         }
-//        {
-//            // Tab Button Composable Refactor (Optional but cleaner)
-//            @Composable
-//            fun TabButton(text: String, isSelected: Boolean, onClick: () -> Unit) {
-//                Box(
-//                    modifier = Modifier
-//                        .weight(1f)
-//                        .fillMaxHeight()
-//                        .background(if (isSelected) Color.LightGray.copy(alpha = 0.5f) else Color.Transparent)
-//                        .clickable(onClick = onClick)
-//                        .padding(horizontal = 16.dp),
-//                    contentAlignment = Alignment.Center
-//                ) {
-//                    Row(verticalAlignment = Alignment.CenterVertically) {
-//                        if (isSelected) {
-//                            Icon(
-//                                imageVector = Icons.Default.Check,
-//                                contentDescription = "Selected",
-//                                tint = Color.Black,
-//                                modifier = Modifier.size(18.dp) // Smaller check
-//                            )
-//                            Spacer(modifier = Modifier.width(4.dp))
-//                        }
-//                        Text(text, style = MaterialTheme.typography.bodyMedium) // Use theme typography
-//                    }
-//                }
-//            }
-//
-//            TabButton(
-//                text = "Issues",
-//                isSelected = currentSelectedTab == "Issues",
-//                onClick = { onTabSelected("Issues") }
-//            )
-//            TabButton(
-//                text = "Tasks",
-//                isSelected = currentSelectedTab == "Tasks",
-//                onClick = { onTabSelected("Tasks") }
-//            )
-//        }
-
-
-//        // Content based on selected tab
-//        Box(modifier = Modifier.padding(top = 8.dp)) {
-//            when (currentSelectedTab) {
-//                // *** Update Issues tab to call IssueList ***
-//                "Issues" -> IssueList(
-//                    issues = issues,
-//                    onNavigateToEdit = onNavigateToEditIssue // Pass the navigation callback
-//                )
-//                "Tasks" -> TaskList(
-//                    tasks = tasks,
-//                    onNavigateToDetail = { task ->
-//                        navController.navigate(Screen.TaskDetail.createRoute(task.taskId))
-//                    },
-//                    onEditTask = { task ->
-//                        navController.navigate(Screen.AddEditTask.createRoute(departmentId, task.taskId))
-//                    },
-//                    onTaskCompletedChanged = onTaskCompletedChanged
-//                )
-//            }
-//        }
     }
 }
 
@@ -819,9 +886,11 @@ fun IssueList(
     if (issues.isEmpty()) {
         Text(
             text = "No issues reported yet. Tap 'Add New Issue' to create one.",
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
             textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.bodyMedium
+            style = typography.bodyMedium
         )
     } else {
         Column(modifier = modifier) {
@@ -855,14 +924,7 @@ fun IssueList(
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
-
                     }
-                    // Optional: Add explicit edit or delete icons if preferred over clicking row
-                    /*
-                    IconButton(onClick = { onNavigateToEdit(issue) }) {
-                        Icon(imageVector = Icons.Filled.Edit, contentDescription = "Edit Issue", modifier = Modifier.size(20.dp))
-                    }
-                    */
                 }
                 HorizontalDivider(thickness = 1.dp, color = Color.LightGray.copy(alpha = 0.5f))
             }
@@ -874,8 +936,9 @@ fun IssueList(
 fun TaskList(
     tasks: List<Task>,
     onNavigateToDetail: (Task) -> Unit,
-    onEditTask: (Task) -> Unit,
     onTaskCompletedChanged: (Task, Boolean) -> Unit,
+    currentUserEmail: String?, // Add current user's email as a parameter
+    assignedUsersForTask: (Int) -> List<String>,
     modifier: Modifier = Modifier // *** MODIFIED *** Accept modifier
 ) {
     val itemHeight = 80.dp
@@ -883,13 +946,22 @@ fun TaskList(
         // Display this text when there are no tasks
         Text(
             text = "No tasks assigned yet. Tap 'Add New Task' to create one.", // <-- This message is for empty tasks
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
             textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.bodyMedium // Ensure MaterialTheme is imported
+            style = typography.bodyMedium // Ensure MaterialTheme is imported
         )
     } else {
-        Column(modifier = modifier) {
+        Column(
+            modifier = modifier
+                .verticalScroll(rememberScrollState())
+        ) {
             tasks.forEach { task ->
+                val isCreatorOrAssigned = remember(currentUserEmail) {
+                    currentUserEmail != null && (task.creatorEmail == currentUserEmail ||
+                            assignedUsersForTask(task.taskId).contains(currentUserEmail))
+                }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -899,9 +971,10 @@ fun TaskList(
                 ) {
                     Checkbox(
                         checked = task.isCompleted,
-                        onCheckedChange = { isChecked ->
+                        onCheckedChange = if (isCreatorOrAssigned) { isChecked ->
                             onTaskCompletedChanged(task, isChecked)
-                        }
+                        } else null,
+                        enabled = isCreatorOrAssigned,
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Column(
@@ -926,13 +999,6 @@ fun TaskList(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    IconButton(onClick = { onEditTask(task) }) {
-                        Icon(
-                            imageVector = Icons.Filled.Edit,
-                            contentDescription = "Edit Task",
-                            modifier = Modifier.size(20.dp))
-                    }
                 }
                 HorizontalDivider(
                     modifier = Modifier.padding(2.dp),
@@ -943,29 +1009,3 @@ fun TaskList(
         }
     }
 }
-
-
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    OnTheWayTheme {
-        DepartmentDetailsScreen(
-            navController = rememberNavController(),
-            departmentId = 1,
-            departmentName = "Sample Department"
-        )
-    }
-}
-
-/*
-@Preview(showBackground = true)
-@Composable
-fun GreetingaPreview() {
-    OnTheWayTheme {
-        DepartmentListScreen(
-            navController = rememberNavController(),
-        )
-    }
-}
-*/

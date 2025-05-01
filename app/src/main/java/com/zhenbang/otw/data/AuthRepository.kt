@@ -17,4 +17,5 @@ interface AuthRepository {
     suspend fun getUserProfile(userId: String): Result<UserProfile?> // Return nullable UserProfile
     suspend fun updateUserProfile(userId: String, profileUpdates: Map<String, Any?>): Result<Unit>
     suspend fun uploadProfileImage(userId: String, imageUri: Uri): Result<String>
+    suspend fun getUserByEmail(email: String): Result<UserProfile?>
 }

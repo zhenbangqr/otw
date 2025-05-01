@@ -2,7 +2,10 @@ package com.zhenbang.otw.data
 
 import android.net.Uri // Import Uri
 import android.util.Log
+import androidx.compose.foundation.layout.size
+import androidx.core.graphics.values
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
@@ -272,6 +275,28 @@ class FirebaseAuthRepository : AuthRepository {
             Result.success(downloadUrl)
         } catch (e: Exception) {
             Log.e(TAG, "Image upload failed for user $userId", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun getUserByEmail(email: String): Result<UserProfile?> {
+        return try {
+            Log.d(TAG, "Attempting to fetch user profile with email: $email from Firestore")
+            val querySnapshot = usersCollection.whereEqualTo("email", email).limit(1).get().await()
+
+            if (!querySnapshot.isEmpty) {
+                val document = querySnapshot.documents.first()
+                // Assuming you have a UserProfile data class and your Firestore
+                // document can be directly mapped to it.
+                val userProfile = document.toObject(UserProfile::class.java)
+                Log.d(TAG, "Successfully fetched user profile: $userProfile")
+                Result.success(userProfile)
+            } else {
+                Log.d(TAG, "No user found with email: $email")
+                Result.success(null)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to fetch user profile by email from Firestore", e)
             Result.failure(e)
         }
     }

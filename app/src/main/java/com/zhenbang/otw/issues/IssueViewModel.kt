@@ -31,7 +31,8 @@ class IssueViewModel(private val repository: IssueRepository) : ViewModel() {
             issue.copy(
                 issueTitle = issue.issueTitle.trim(),
                 issueDescription = issue.issueDescription.trim(),
-                creationTimestamp = System.currentTimeMillis() // Ensure timestamp for new issues
+                creationTimestamp = System.currentTimeMillis(), // Ensure timestamp for new issues
+                creatorEmail = issue.creatorEmail
             )
         } else {
             // It's an existing issue, just trim fields

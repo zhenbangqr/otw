@@ -1,0 +1,25 @@
+package com.zhenbang.otw.database
+
+import androidx.room.*
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface TaskAssignmentDao {
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertTaskAssignment(taskAssignment: TaskAssignment)
+
+    @Update
+    suspend fun updateTaskAssignment(taskAssignment: TaskAssignment)
+
+    @Delete
+    suspend fun deleteTaskAssignment(taskAssignment: TaskAssignment)
+
+    @Query("SELECT * FROM TaskAssignment WHERE taskId = :taskId")
+    fun getTaskAssignmentsForTask(taskId: Int): Flow<List<TaskAssignment>>
+
+    @Query("SELECT * FROM TaskAssignment WHERE userEmail = :userEmail")
+    suspend fun getTaskAssignmentsForUser(userEmail: String): List<TaskAssignment>
+
+    @Query("DELETE FROM TaskAssignment WHERE taskId = :taskId")
+    suspend fun deleteTaskAssignmentsByTaskId(taskId: Int)
+}

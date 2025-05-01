@@ -1,10 +1,10 @@
 package com.zhenbang.otw.database
 
-import androidx.room.Entity
-import androidx.room.PrimaryKey
 import androidx.room.ColumnInfo
+import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
+import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "issues",
@@ -25,5 +25,6 @@ data class Issue(
     val issueDescription: String,
     @ColumnInfo(name = "departmentId") // Explicitly name the column
     val departmentId: Int,
-    val creationTimestamp: Long = System.currentTimeMillis() // Timestamp for sorting
+    val creationTimestamp: Long = System.currentTimeMillis(), // Timestamp for sorting
+    val creatorEmail: String? = null
 )

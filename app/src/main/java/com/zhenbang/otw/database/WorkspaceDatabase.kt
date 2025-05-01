@@ -5,12 +5,17 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-// 1. Add Issue::class to entities and increment version to 4
-@Database(entities = [Department::class, Task::class, Issue::class], version = 4, exportSchema = false)
+@Database(
+    entities = [Department::class, Task::class, Issue::class, DeptUser::class, TaskAssignment::class],
+    version = 9,
+    exportSchema = false
+)
 abstract class WorkspaceDatabase : RoomDatabase() {
     abstract fun departmentDao(): DepartmentDao
     abstract fun taskDao(): TaskDao
-    abstract fun issueDao(): IssueDao // 2. Add abstract fun for IssueDao
+    abstract fun issueDao(): IssueDao
+    abstract fun deptUserDao(): DeptUserDao
+    abstract fun taskAssignmentDao(): TaskAssignmentDao
 
     companion object {
 
@@ -22,16 +27,14 @@ abstract class WorkspaceDatabase : RoomDatabase() {
 
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(database: SupportSQLiteDatabase) {
-                // Make sure the default value handling matches the entity's default
                 database.execSQL("ALTER TABLE tasks ADD COLUMN creationTimestamp INTEGER NOT NULL DEFAULT 0")
             }
         }
 
-        // 3. Add Migration from version 3 to 4
         val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(database: SupportSQLiteDatabase) {
-                // Create the new 'issues' table
-                database.execSQL("""
+                database.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS `issues` (
                         `issueId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                         `issueTitle` TEXT NOT NULL,
@@ -40,9 +43,78 @@ abstract class WorkspaceDatabase : RoomDatabase() {
                         `creationTimestamp` INTEGER NOT NULL DEFAULT 0,
                         FOREIGN KEY(`departmentId`) REFERENCES `departments`(`departmentId`) ON UPDATE NO ACTION ON DELETE CASCADE
                     )
-                """.trimIndent())
-                // Add index on departmentId for foreign key performance
+                """.trimIndent()
+                )
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_issues_departmentId` ON `issues` (`departmentId`)")
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE departments ADD COLUMN creatorEmail TEXT")
+            }
+        }
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `deptusers` (
+                        `creationTimestamp` INTEGER NOT NULL,
+                        `userEmail` TEXT NOT NULL,
+                        `deptUserId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `departmentId` INTEGER NOT NULL,
+                        FOREIGN KEY(`departmentId`) REFERENCES `departments`(`departmentId`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                        UNIQUE(`userEmail`, `departmentId`)
+                    )
+                """.trimIndent()
+                )
+                database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_deptusers_userEmail_departmentId` ON `deptusers` (`userEmail`, `departmentId`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_deptusers_departmentId` ON `deptusers` (`departmentId`)")
+            }
+        }
+
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE tasks ADD COLUMN creatorEmail TEXT")
+                database.execSQL("ALTER TABLE issues ADD COLUMN creatorEmail TEXT")
+            }
+        }
+
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("DROP TABLE IF EXISTS deptusers");
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `deptUsers` (
+                        `creationTimestamp` INTEGER NOT NULL,
+                        `userEmail` TEXT NOT NULL,
+                        `deptUserId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `departmentId` INTEGER NOT NULL,
+                        FOREIGN KEY(`departmentId`) REFERENCES `departments`(`departmentId`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                        UNIQUE(`userEmail`, `departmentId`)
+                    )
+                """.trimIndent()
+                )
+                database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_deptUsers_userEmail_departmentId` ON `deptUsers` (`userEmail`, `departmentId`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_deptUsers_departmentId` ON `deptUsers` (`departmentId`)")
+            }
+        }
+
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `taskAssignment` (
+                        `taskAssignmentId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `taskId` INTEGER NOT NULL,
+                        `userEmail` TEXT NOT NULL,
+                        `creationTimeStamp` INTEGER NOT NULL,
+                        FOREIGN KEY(`taskId`) REFERENCES `tasks`(`taskId`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                """.trimIndent()
+                )
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_taskAssignment_taskId` ON `taskAssignment` (`taskId`)")
             }
         }
 
@@ -56,8 +128,16 @@ abstract class WorkspaceDatabase : RoomDatabase() {
                     WorkspaceDatabase::class.java,
                     "workspace_database"
                 )
-                    // 4. Add the new migration
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(
+                        MIGRATION_1_2,
+                        MIGRATION_2_3,
+                        MIGRATION_3_4,
+                        MIGRATION_4_5,
+                        MIGRATION_5_6,
+                        MIGRATION_6_7,
+                        MIGRATION_7_8,
+                        MIGRATION_8_9
+                    )
                     .build()
                 INSTANCE = instance
                 instance

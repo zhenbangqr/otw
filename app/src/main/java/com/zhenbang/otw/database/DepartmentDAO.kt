@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface DepartmentDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertDepartment(department: Department)
+    suspend fun insertDepartment(department: Department): Long
 
     @Update
     suspend fun updateDepartment(department: Department)
@@ -22,4 +22,13 @@ interface DepartmentDao {
 
     @Query("UPDATE departments SET departmentName = :newName WHERE departmentId = :departmentId")
     suspend fun updateDepartmentNameById(departmentId: Int, newName: String)
+
+    @Query(
+        """
+        SELECT d.* FROM departments d
+        INNER JOIN deptusers du ON d.departmentId = du.departmentId
+        WHERE du.userEmail = :email
+    """
+    )
+    fun getDepartmentsByUser(email: String): Flow<List<Department>>
 }

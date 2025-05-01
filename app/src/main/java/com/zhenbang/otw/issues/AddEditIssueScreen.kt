@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel // Import viewModel
 import androidx.navigation.NavController
+import com.google.firebase.auth.FirebaseAuth
 import com.zhenbang.otw.database.Issue // Import your Issue entity
 
 @Composable
@@ -27,6 +28,7 @@ fun AddEditIssueScreen(
 ) {
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
+    val currentUserEmail = FirebaseAuth.getInstance().currentUser?.email
     // Observe the issue to edit based on issueId
     // Use derivedStateOf to prevent potential recomposition loops if issueToEdit changes reference but not content
     val issueToEditState by issueViewModel.getIssueById(issueId).collectAsState(initial = null)
@@ -89,7 +91,8 @@ fun AddEditIssueScreen(
                         issueDescription = description,
                         // Let ViewModel handle timestamp logic during upsert
                         // Provide existing timestamp for comparison if editing
-                        creationTimestamp = issueToEdit?.creationTimestamp ?: currentTimestamp
+                        creationTimestamp = issueToEdit?.creationTimestamp ?: currentTimestamp,
+                        creatorEmail = currentUserEmail
                     )
                     issueViewModel.upsertIssue(issue) // Use the upsert method
                     navController.popBackStack() // Go back after saving
