@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage // For displaying images from URL
 import android.util.Log // For logging
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import com.zhenbang.otw.data.model.ResponseWeatherAPI
 import com.zhenbang.otw.ui.theme.OnTheWayTheme
@@ -94,78 +95,48 @@ fun ScreenWeather(
 
 // Composable to display the actual weather details - RE-VERIFIED DATA ACCESS
 @Composable
-fun WeatherDetails(data: ResponseWeatherAPI) { // Parameter must be WeatherApiResponse
+fun WeatherDetails(data: ResponseWeatherAPI) {
     // --- Safely access data based on the CORRECT WeatherApiResponse structure ---
     val locationName = data.location?.name
     val country = data.location?.country
     val currentTemp = data.current?.tempCelsius // Access tempCelsius
     val conditionText = data.current?.condition?.text
     val conditionIconUrl = data.current?.condition?.icon // Access icon URL
-    val humidity = data.current?.humidity
-    val cloud = data.current?.cloud
-    val lastUpdated = data.current?.lastUpdated
 
     // Optional: More robust check if critical data is missing
     if (locationName == null || currentTemp == null || conditionText == null || conditionIconUrl == null) {
         Log.w("WeatherDetails", "Essential weather data missing in response: $data")
-        Text("Weather data unavailable or incomplete.")
+        Text("Weather data unavailable or incomplete.", textAlign = TextAlign.Center)
         return // Exit early if essential data is missing
     }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-        modifier = Modifier.padding(16.dp)
+        modifier = Modifier // Removed padding, let parent handle padding
     ) {
-        // Display Location Name and Country (handle nulls)
         Text(
-            text = "${locationName}, ${country ?: ""}", // Display location name and country
-            style = MaterialTheme.typography.headlineSmall
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Prepare Icon URL (handle "//" prefix)
-        val finalIconUrl = conditionIconUrl.let { // Use 'let' on the already extracted nullable URL
-            if (it.startsWith("//")) "https:$it" else it
-        }
-
-        AsyncImage(
-            model = finalIconUrl, // Use the prepared URL
-            contentDescription = conditionText, // Use condition text for description
-            modifier = Modifier.size(80.dp)
-            // Optional: Add placeholder/error for AsyncImage
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Display Condition Text
-        Text(
-            text = conditionText,
+            text = "${locationName}, ${country ?: ""}",
             style = MaterialTheme.typography.titleMedium
         )
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Display Temperature
+        Spacer(modifier = Modifier.height(4.dp))
+        val finalIconUrl = conditionIconUrl.let {
+            if (it.startsWith("//")) "https:$it" else it
+        }
+        AsyncImage(
+            model = finalIconUrl,
+            contentDescription = conditionText,
+            modifier = Modifier.size(64.dp)
+        )
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "%.1f°C".format(currentTemp), // Format the temperature
-            style = MaterialTheme.typography.displayMedium,
-            fontWeight = FontWeight.Bold
+            text = conditionText,
+            style = MaterialTheme.typography.bodyLarge
         )
         Spacer(modifier = Modifier.height(8.dp))
-
-        // Display Humidity (handle null)
         Text(
-            text = "Humidity: ${humidity ?: "--"}%",
-            style = MaterialTheme.typography.bodyMedium
-        )
-        // Display Cloud Cover (handle null)
-        Text(
-            text = "Cloud Cover: ${cloud ?: "--"}%",
-            style = MaterialTheme.typography.bodyMedium
-        )
-        // Display Last Updated (handle null)
-        Text(
-            text = "Last Updated: ${lastUpdated ?: "--"}",
-            style = MaterialTheme.typography.bodySmall
+            text = "%.1f°C".format(currentTemp),
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
         )
     }
 }
