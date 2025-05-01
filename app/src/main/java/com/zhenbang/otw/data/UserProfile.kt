@@ -14,7 +14,7 @@ data class UserProfile(
     var dateOfBirth: Timestamp? = null,
     var bio: String? = null,
     var profileImageUrl: String? = null,
-
+    val blockedUserIds: List<String> = emptyList(),
     val createdAt: Timestamp? = null,
     val lastLoginAt: Timestamp? = null
 ) {

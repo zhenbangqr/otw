@@ -15,4 +15,6 @@ interface AuthRepository {
     suspend fun updateUserProfile(userId: String, profileUpdates: Map<String, Any?>): Result<Unit>
     suspend fun uploadProfileImage(userId: String, imageUri: Uri): Result<String>
     suspend fun getAllUserProfilesFromFirestore(): Result<List<UserProfile>>
+    suspend fun blockUser(currentUserId: String, userIdToBlock: String): Result<Unit>
+    suspend fun unblockUser(currentUserId: String, userIdToUnblock: String): Result<Unit>
 }

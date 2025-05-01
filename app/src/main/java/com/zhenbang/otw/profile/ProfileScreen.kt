@@ -22,6 +22,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,6 +42,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage // Import Coil
 import coil.request.ImageRequest
 import com.google.firebase.auth.FirebaseAuth
+import com.zhenbang.otw.R
 // Make sure ProfileViewModel is in the correct package
 import com.zhenbang.otw.profile.ProfileViewModel // Import ProfileViewModel
 import com.zhenbang.otw.profile.ProfileStatus // Import ProfileStatus
@@ -47,12 +51,18 @@ import com.zhenbang.otw.profile.ProfileStatus // Import ProfileStatus
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
-    profileViewModel: ProfileViewModel = viewModel(),
+    profileViewModel: ProfileViewModel,
     onLogout: () -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToLanguageSettings: () -> Unit,
+    onNavigateToManageAccount: () -> Unit,
+    onNavigateToPrivacy: () -> Unit
 ) {
     val uiState by profileViewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val userProfile = uiState.userProfile
+
+    var showImageDialog by rememberSaveable { mutableStateOf(false) }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -107,21 +117,21 @@ fun ProfileScreen(
                     ProfileHeader(
                         name = uiState.userProfile?.displayName ?: "Loading...",
                         bio = uiState.userProfile?.bio ?: "",
-                        imageUrl = uiState.userProfile?.profileImageUrl,
+                        imageUrl = userProfile?.profileImageUrl,
                         onImageClick = {
-                            imagePickerLauncher.launch("image/*")
+                            showImageDialog = true
                         }
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
                 // Settings Sections
-                item { SettingsListItem(title = "Account", primaryText = "Change number") { Toast.makeText(context, "Change number clicked", Toast.LENGTH_SHORT).show() } }
-                item { SettingsListItem(title = "Privacy", primaryText = "Block users") { Toast.makeText(context, "Block users clicked", Toast.LENGTH_SHORT).show() } }
-                item { SettingsListItem(title = "Avatar", primaryText = "Change profile picture") { imagePickerLauncher.launch("image/*") } }
+                item { SettingsListItem(title = "Account", primaryText = "Manage Account") { onNavigateToManageAccount() } }
+                item { SettingsListItem(title = "Privacy", primaryText = "Block users") { onNavigateToPrivacy() } }
+//                item { SettingsListItem(title = "Avatar", primaryText = "Change profile picture") { imagePickerLauncher.launch("image/*") } }
                 item { SettingsListItem(title = "Chats", primaryText = "Themes") { Toast.makeText(context, "Themes clicked", Toast.LENGTH_SHORT).show() } }
                 item { SettingsListItem(title = "Notifications", primaryText = "Message, groups and call tones") { Toast.makeText(context, "Notifications clicked", Toast.LENGTH_SHORT).show() } }
-                item { SettingsListItem(title = "App language", primaryText = "English (device's language)") { Toast.makeText(context, "Language clicked", Toast.LENGTH_SHORT).show() } }
+                item { SettingsListItem(title = "App language", primaryText = "English") { onNavigateToLanguageSettings() } }
                 item { SettingsListItem(title = "Help", primaryText = "SOS!") { Toast.makeText(context, "Help clicked", Toast.LENGTH_SHORT).show() } }
 
 
@@ -148,6 +158,37 @@ fun ProfileScreen(
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             }
         } // End Box
+
+        // --- Image Viewer Dialog ---
+        if (showImageDialog) {
+            // Using AlertDialog for simplicity, could use basic Dialog for more control
+            AlertDialog(
+                onDismissRequest = { showImageDialog = false },
+                // No buttons needed for simple view
+                confirmButton = { },
+                dismissButton = { },
+                // Content is just the image, larger
+                text = { // Using text slot for main content area
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(userProfile?.profileImageUrl)
+                            .crossfade(true)
+                            .placeholder(R.drawable.ic_placeholder_profile) // Placeholder while loading large image
+                            .error(R.drawable.ic_placeholder_profile)       // Error image
+                            .build(),
+                        contentDescription = "Profile Picture Enlarged",
+                        modifier = Modifier
+                            .fillMaxWidth() // Take full dialog width
+                            .aspectRatio(1f) // Maintain square aspect ratio
+                            .clip(MaterialTheme.shapes.medium), // Optional: slightly rounded corners
+                        contentScale = ContentScale.Fit // Fit the image within the bounds
+                    )
+                },
+                // Optional: Make dialog non-dismissable by clicking outside
+                // properties = DialogProperties(dismissOnClickOutside = false)
+            )
+        } // End Image Dialog Condition
+
     } // End Scaffold
 }
 
@@ -175,6 +216,8 @@ fun ProfileHeader(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(imageUrl)
                     .crossfade(true)
+                    .placeholder(R.drawable.ic_placeholder_profile)
+                    .error(R.drawable.ic_placeholder_profile)
                     .build(),
                 contentDescription = "Profile Picture",
                 modifier = Modifier.fillMaxSize(),

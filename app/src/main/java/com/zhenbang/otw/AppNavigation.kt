@@ -42,6 +42,9 @@ import com.zhenbang.otw.tasks.TaskDetailScreen
 import com.zhenbang.otw.tasks.TaskViewModel
 import com.zhenbang.otw.issues.AddEditIssueScreen
 import com.zhenbang.otw.issues.IssueViewModel
+import com.zhenbang.otw.profile.language.LanguageScreen
+import com.zhenbang.otw.profile.manageAccount.ManageAccountScreen
+import com.zhenbang.otw.profile.privacy.PrivacyScreen
 
 
 // --- Unified Destinations ---
@@ -51,9 +54,12 @@ object AppDestinations {
     const val VERIFICATION_EMAIL_ARG = "email"
     const val VERIFICATION_ROUTE = "verification/{$VERIFICATION_EMAIL_ARG}"
     const val ENTER_SELF_DETAILS_ROUTE = "enter_self_details"
-    const val PROFILE_ROUTE = "profile"
     const val MAIN_PAGE_ROUTE = "main_page"
     const val LOADING_ROUTE = "loading"
+    const val PROFILE_ROUTE = "profile"
+    const val LANGUAGE_SELECTION_ROUTE = "language_selection"
+    const val MANAGE_ACCOUNT_ROUTE = "manage_account"
+    const val PRIVACY_ROUTE = "privacy"
 
     // Destinations for Department Feature
     const val DEPARTMENT_LIST_ROUTE = "department_list"
@@ -180,7 +186,10 @@ fun AppNavigation() {
             AppDestinations.DEPARTMENT_DETAILS_ROUTE,
             AppDestinations.TASK_DETAIL_ROUTE,
             AppDestinations.ADD_EDIT_TASK_ROUTE,
-            AppDestinations.ADD_EDIT_ISSUE_ROUTE
+            AppDestinations.ADD_EDIT_ISSUE_ROUTE,
+            AppDestinations.LANGUAGE_SELECTION_ROUTE,
+            AppDestinations.MANAGE_ACCOUNT_ROUTE,
+            AppDestinations.PRIVACY_ROUTE
         )
 
         val targetRoute: String? = when (resolvedAuthState) {
@@ -341,9 +350,32 @@ fun AppNavigation() {
         // --- Profile Screen ---
         composable(route = AppDestinations.PROFILE_ROUTE) {
             ProfileScreen(
+                profileViewModel = profileViewModel,
                 onNavigateBack = { navController.popBackStack() },
-                onLogout = performLogout
+                onLogout = performLogout,
+                onNavigateToLanguageSettings = {
+                    navController.navigate(AppDestinations.LANGUAGE_SELECTION_ROUTE)
+                },
+                onNavigateToManageAccount = {
+                    navController.navigate(AppDestinations.MANAGE_ACCOUNT_ROUTE)
+                },
+                onNavigateToPrivacy = {
+                    navController.navigate(AppDestinations.PRIVACY_ROUTE)
+                }
             )
+        }
+        // --- Profile Screen -> Language Screen ---
+        composable(route = AppDestinations.LANGUAGE_SELECTION_ROUTE) {
+            LanguageScreen(navController = navController)
+        }
+
+        // --- Profile Screen -> Manage Account Screen ---
+        composable(route = AppDestinations.MANAGE_ACCOUNT_ROUTE) {
+            ManageAccountScreen(navController = navController, profileViewModel = profileViewModel)
+        }
+
+        composable(route = AppDestinations.PRIVACY_ROUTE) {
+            PrivacyScreen(navController = navController)
         }
 
         // --- Main Page Screen ---

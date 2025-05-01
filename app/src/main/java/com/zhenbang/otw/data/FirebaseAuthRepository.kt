@@ -9,6 +9,7 @@ import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.firestore.ktx.toObject
@@ -286,6 +287,38 @@ class FirebaseAuthRepository : AuthRepository {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to fetch all user profiles from Firestore", e)
             Result.failure(e) // Propagate the exception (likely a permission error if rules aren't set)
+        }
+    }
+
+    override suspend fun blockUser(currentUserId: String, userIdToBlock: String): Result<Unit> {
+        Log.d(TAG, "User $currentUserId attempting to block user $userIdToBlock")
+        if (currentUserId == userIdToBlock) {
+            Log.w(TAG,"User cannot block themselves.")
+            return Result.failure(IllegalArgumentException("You cannot block yourself."))
+        }
+        return try {
+            usersCollection.document(currentUserId)
+                .update("blockedUserIds", FieldValue.arrayUnion(userIdToBlock)) // Add ID to array
+                .await()
+            Log.d(TAG, "User $userIdToBlock blocked successfully by $currentUserId.")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to block user $userIdToBlock for $currentUserId", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun unblockUser(currentUserId: String, userIdToUnblock: String): Result<Unit> {
+        Log.d(TAG, "User $currentUserId attempting to unblock user $userIdToUnblock")
+        return try {
+            usersCollection.document(currentUserId)
+                .update("blockedUserIds", FieldValue.arrayRemove(userIdToUnblock)) // Remove ID from array
+                .await()
+            Log.d(TAG, "User $userIdToUnblock unblocked successfully by $currentUserId.")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to unblock user $userIdToUnblock for $currentUserId", e)
+            Result.failure(e)
         }
     }
 }
