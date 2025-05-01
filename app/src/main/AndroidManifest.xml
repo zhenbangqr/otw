@@ -23,7 +23,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.OnTheWay"
         tools:targetApi="31">
-
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -41,7 +40,6 @@
                 <data android:scheme="${appAuthRedirectScheme}" />
             </intent-filter>
         </activity>
-
     </application>
 
 </manifest>

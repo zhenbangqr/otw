@@ -48,6 +48,16 @@ android {
 }
 
 dependencies {
+
+    implementation (libs.retrofit)              //Retrofit
+    implementation (libs.converter.gson)        //Gson Converter
+    implementation(libs.logging.interceptor)    //An OkHttp interceptor which logs HTTP request and response data.
+    //View Model and Lifecycle
+    implementation(libs.androidx.lifecycle.runtime.ktx.v280)
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.coil.compose)
+
     implementation(libs.androidx.core.ktx)
     // --- Core KTX & Lifecycle / Compose Runtime ---
     implementation(libs.androidx.core.ktx) // Keep ONE core-ktx
@@ -85,6 +95,8 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.benchmark.common)
+    implementation(libs.volley)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.material.iconsExtended)
 
