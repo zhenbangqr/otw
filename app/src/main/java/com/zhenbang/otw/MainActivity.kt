@@ -69,7 +69,10 @@ class MainActivity : ComponentActivity() {
 }
 
 
-@Preview(showBackground = true)
+// --- Helper function saveTokenToFirestore --- (Unchanged)
+suspend fun saveTokenToFirestore(userId: String?, token: String?) { /* ... */ if (userId != null && token != null) { try { val userDocRef = Firebase.firestore.collection("users").document(userId); userDocRef.set(mapOf("fcmToken" to token), SetOptions.merge()).await(); Log.d("FCM Token", "Token saved/updated for user $userId") } catch (e: Exception) { Log.e("FCM Token", "Error saving token for user $userId", e) } } else { Log.w("FCM Token", "Cannot save token - userId or token is null.") } }
+
+// --- EnterNameScreen composable --- (Unchanged)
 @Composable
 fun GreetingPreview() {
     OnTheWayTheme {
