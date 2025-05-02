@@ -64,6 +64,10 @@ class TaskRepository(
         return deptUserDao.getDeptUsersByDepartmentId(departmentId)
     }
 
+    fun getTaskAssignmentsForUser(userEmail: String): Flow<List<TaskAssignment>> {
+        return taskAssignmentDao.getTaskAssignmentsForUser(userEmail)
+    }
+
     fun getAssignedUsersForTask(taskId: Int): Flow<List<TaskAssignment>> {
         return taskAssignmentDao.getTaskAssignmentsForTask(taskId)
     }

@@ -548,7 +548,7 @@ fun DepartmentDetailsScreen(
                         navController.navigate(Screen.TaskDetail.createRoute(task.taskId))
                     },
                     currentUserEmail = currentUserEmail, // Pass the current user's email
-                    assignedUsersForTask = getAssignedUsersForTask,
+                    taskViewModel = taskViewModel,
                     modifier = Modifier.fillMaxHeight()
                 )
             }
@@ -805,7 +805,7 @@ fun TabbedContentSection(
     onNavigateToEditIssue: (Issue) -> Unit,
     onNavigateToTaskDetail: (Task) -> Unit, // Receive needed callbacks
     currentUserEmail: String?,  // Receive the user email
-    assignedUsersForTask: (Int) -> List<String>,
+    taskViewModel: TaskViewModel,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
@@ -865,7 +865,7 @@ fun TabbedContentSection(
                     onNavigateToDetail = onNavigateToTaskDetail, // Use passed callback
                     onTaskCompletedChanged = onTaskCompletedChanged,
                     currentUserEmail = currentUserEmail, // Pass it down
-                    assignedUsersForTask = assignedUsersForTask,
+                    taskViewModel = taskViewModel,
                     // Pass modifier to allow filling the Box
 //                    modifier = Modifier.fillMaxSize() // *** MODIFIED ***
                 )
@@ -936,7 +936,7 @@ fun TaskList(
     onNavigateToDetail: (Task) -> Unit,
     onTaskCompletedChanged: (Task, Boolean) -> Unit,
     currentUserEmail: String?, // Add current user's email as a parameter
-    assignedUsersForTask: (Int) -> List<String>,
+    taskViewModel: TaskViewModel,
     modifier: Modifier = Modifier // *** MODIFIED *** Accept modifier
 ) {
     val itemHeight = 80.dp
@@ -956,10 +956,9 @@ fun TaskList(
                 .verticalScroll(rememberScrollState())
         ) {
             tasks.forEach { task ->
-                val isCreatorOrAssigned = remember(currentUserEmail) {
-                    currentUserEmail != null && (task.creatorEmail == currentUserEmail ||
-                            assignedUsersForTask(task.taskId).contains(currentUserEmail))
-                }
+                val canEditTaskFlow = remember { taskViewModel.canEditTask(task.taskId, currentUserEmail) }
+                val canEdit by canEditTaskFlow.collectAsState(initial = false)
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -969,10 +968,10 @@ fun TaskList(
                 ) {
                     Checkbox(
                         checked = task.isCompleted,
-                        onCheckedChange = if (isCreatorOrAssigned) { isChecked ->
+                        onCheckedChange = if (canEdit) { isChecked ->
                             onTaskCompletedChanged(task, isChecked)
                         } else null,
-                        enabled = isCreatorOrAssigned,
+                        enabled = canEdit,
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Column(
