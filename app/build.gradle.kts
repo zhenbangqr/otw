@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
+    id("org.jetbrains.kotlin.plugin.serialization") // Apply plugin
 }
 
 android {
@@ -71,7 +72,6 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.12.0"))
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-database-ktx")
-    implementation("com.google.android.gms:play-services-location:21.2.0")
     implementation("com.google.maps.android:maps-compose:6.5.3")
     implementation("com.google.android.gms:play-services-maps:18.2.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.6.0")
@@ -85,4 +85,6 @@ dependencies {
     implementation("com.google.firebase:firebase-messaging-ktx")
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation("com.google.firebase:firebase-storage-ktx")
+    implementation("com.google.android.gms:play-services-location:21.2.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3") // Or latest version
 }
