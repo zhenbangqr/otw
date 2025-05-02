@@ -36,7 +36,6 @@ import com.zhenbang.otw.register.RegisterScreen
 import com.zhenbang.otw.register.RegisterViewModel
 import com.zhenbang.otw.mainPage.MainPageScreen
 import com.zhenbang.otw.departments.DepartmentDetailsScreen
-import com.zhenbang.otw.departments.DepartmentListScreen
 import com.zhenbang.otw.departments.DepartmentViewModel
 import com.zhenbang.otw.departments.Screen
 import com.zhenbang.otw.tasks.AddEditTaskScreen

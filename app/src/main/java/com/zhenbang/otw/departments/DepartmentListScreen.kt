@@ -44,7 +44,7 @@ fun WorkspaceContent(
     val coroutineScope = rememberCoroutineScope() // Scope for dialog actions
 
     // Dialog states managed here
-    var showDialog by rememberSaveable { mutableStateOf(false) }
+    var showAddDeptDialog by rememberSaveable { mutableStateOf(false) }
     var departmentName by rememberSaveable { mutableStateOf("") }
     var imageUrl by rememberSaveable { mutableStateOf("") }
 
@@ -139,7 +139,7 @@ fun WorkspaceContent(
 
         // FAB for adding departments - positioned within the Box
         FloatingActionButton(
-            onClick = { showDialog = true },
+            onClick = { showAddDeptDialog = true },
             modifier = Modifier
                 .align(Alignment.BottomEnd) // Position FAB
                 .padding(16.dp)
@@ -150,9 +150,9 @@ fun WorkspaceContent(
 
 
     // Add Department Dialog (remains the same)
-    if (showDialog) {
+    if (showAddDeptDialog) {
         AlertDialog(
-            onDismissRequest = { showDialog = false },
+            onDismissRequest = { showAddDeptDialog = false },
             title = { Text("Add Department") },
             text = {
                 Column {
@@ -175,7 +175,7 @@ fun WorkspaceContent(
                                 )
                                 departmentName = "" // Clear fields after adding
                                 imageUrl = ""
-                                showDialog = false // Close dialog
+                                showAddDeptDialog = false // Close dialog
                             }
                         } else {
                             Log.e("WorkspaceContent", "Cannot add department: User email is null.")
@@ -192,7 +192,7 @@ fun WorkspaceContent(
                     enabled = departmentName.isNotBlank() // Enable only if name is not blank
                 ) { Text("Add") }
             },
-            dismissButton = { Button(onClick = { showDialog = false }) { Text("Cancel") } }
+            dismissButton = { Button(onClick = { showAddDeptDialog = false }) { Text("Cancel") } }
         )
     }
 }
