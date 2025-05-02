@@ -72,7 +72,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private val clientId = "472466047132-0sa7cqoh4gdq2eq7lhvpl1g93553ihuv.apps.googleusercontent.com"
+    private val clientId = "257673197744-cjo7foidi09i4qo1iqhje5lb1ihhp820.apps.googleusercontent.com"
     private val redirectUri = Uri.parse("com.zhenbang.otw:/oauth2redirect")
     private val scope = "openid profile email"
 

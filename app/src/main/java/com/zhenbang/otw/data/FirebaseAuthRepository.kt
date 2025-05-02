@@ -346,4 +346,18 @@ class FirebaseAuthRepository : AuthRepository {
             Result.failure(e)
         }
     }
+
+    override suspend fun saveFcmToken(userId: String, token: String): Result<Unit> {
+        return try {
+            Log.d(TAG, "Attempting to save FCM token for user $userId")
+            val userDocRef = usersCollection.document(userId)
+            // Use set with merge option to only update/add the fcmToken field
+            userDocRef.set(mapOf("fcmToken" to token), SetOptions.merge()).await()
+            Log.d(TAG, "FCM Token saved/updated successfully for user $userId")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving FCM token for user $userId", e)
+            Result.failure(e) // Propagate the error
+        }
+    }
 }
