@@ -41,6 +41,10 @@ class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
         return repository.getDeptUsersByDepartmentId(departmentId)
     }
 
+    fun getTaskAssignmentsForUser(userEmail: String): Flow<List<TaskAssignment>> {
+        return repository.getTaskAssignmentsForUser(userEmail)
+    }
+
     fun getAssignedUsersForTask(taskId: Int): Flow<List<TaskAssignment>> {
         return repository.getAssignedUsersForTask(taskId)
     }

@@ -18,7 +18,7 @@ interface TaskAssignmentDao {
     fun getTaskAssignmentsForTask(taskId: Int): Flow<List<TaskAssignment>>
 
     @Query("SELECT * FROM TaskAssignment WHERE userEmail = :userEmail")
-    suspend fun getTaskAssignmentsForUser(userEmail: String): List<TaskAssignment>
+    fun getTaskAssignmentsForUser(userEmail: String): Flow<List<TaskAssignment>>
 
     @Query("DELETE FROM TaskAssignment WHERE taskId = :taskId")
     suspend fun deleteTaskAssignmentsByTaskId(taskId: Int)
