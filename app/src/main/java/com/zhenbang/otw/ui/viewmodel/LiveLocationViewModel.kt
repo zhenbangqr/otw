@@ -1,4 +1,4 @@
-package com.zhenbang.otw.viewmodel // Or your preferred package
+package com.zhenbang.otw.ui.viewmodel // Or your preferred package
 
 import android.app.Application
 import android.util.Log

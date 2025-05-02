@@ -1,27 +1,27 @@
-package com.zhenbang.otw.model // Or your data package
+package com.zhenbang.otw.messagemodel // Or your data package
 
-import com.google.firebase.Timestamp
-import com.google.firebase.firestore.GeoPoint // Import GeoPoint for location
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.firestore.ServerTimestamp
+import java.security.Timestamp
 
-// Define message types using an Enum for clarity
-enum class MessageType {
-    TEXT, IMAGE, LOCATION, AUDIO
-}
+enum class MessageType { TEXT, IMAGE, LOCATION, AUDIO }
 
 data class ChatMessage(
     val messageId: String = "",
     val senderId: String = "",
     val receiverId: String = "",
-    val timestamp: Timestamp? = null, // Keep using @ServerTimestamp in VM write if possible
-    val messageType: MessageType = MessageType.TEXT, // Add type field
+    val timestamp: Timestamp? = null, // MUST be Timestamp? or Date?, MUST be initialized/set to null before saving
+    val messageType: MessageType = MessageType.TEXT,
 
-    // Fields for specific types (nullable)
-    val text: String? = null, // Make text nullable
-    val imageUrl: String? = null, // URL after uploading to Cloud Storage
-    val location: GeoPoint? = null, // Store location as Firestore GeoPoint
-    val audioUrl: String? = null, // URL after uploading to Cloud Storage
-    val audioDurationMillis: Long? = null // Optional: Duration for UI
+    // Fields for specific types
+    val text: String? = null, // Nullable
+    val imageUrl: String? = null,
+    val location: GeoPoint? = null,
+    val locationName: String? = null,
+    val staticMapUrl: String? = null,
+    val audioUrl: String? = null,
+    val audioDurationMillis: Long? = null
 ) {
-    constructor() : this("", "", "", null, MessageType.TEXT, null, null, null, null, null) // Firestore constructor
+    constructor() : this("", "", "", null, MessageType.TEXT, null, null, null, null, null)
 }

@@ -1,4 +1,4 @@
-package com.zhenbang.otw.util // Or your preferred package
+package com.zhenbang.otw.util
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -27,7 +27,6 @@ data class UserLocation(
 
 
 class LocationHelper(context: Context) {
-
     private val fusedLocationClient: FusedLocationProviderClient =
         LocationServices.getFusedLocationProviderClient(context)
 
