@@ -57,7 +57,7 @@ import coil.request.ImageRequest
 import com.google.firebase.auth.FirebaseAuth
 import com.zhenbang.otw.messagemodel.MessageType
 import com.zhenbang.otw.messagemodel.ChatMessage // Import data class
-import com.zhenbang.otw.viewmodel.MessagingViewModel // Import ViewModel
+import com.zhenbang.otw.ui.viewmodel.MessagingViewModel // Import ViewModel
 import kotlinx.coroutines.delay // Import delay
 import kotlinx.coroutines.launch
 import java.io.IOException // Import IOException

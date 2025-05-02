@@ -12,8 +12,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import com.google.firebase.Firebase
+import com.google.firebase.firestore.SetOptions
+import com.google.firebase.firestore.firestore
 import com.zhenbang.otw.auth.AuthViewModel
 import com.zhenbang.otw.ui.theme.OnTheWayTheme
+import kotlinx.coroutines.tasks.await
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
 
@@ -70,7 +74,7 @@ class MainActivity : ComponentActivity() {
 
 
 // --- Helper function saveTokenToFirestore --- (Unchanged)
-suspend fun saveTokenToFirestore(userId: String?, token: String?) { /* ... */ if (userId != null && token != null) { try { val userDocRef = Firebase.firestore.collection("users").document(userId); userDocRef.set(mapOf("fcmToken" to token), SetOptions.merge()).await(); Log.d("FCM Token", "Token saved/updated for user $userId") } catch (e: Exception) { Log.e("FCM Token", "Error saving token for user $userId", e) } } else { Log.w("FCM Token", "Cannot save token - userId or token is null.") } }
+suspend fun saveTokenToFirestore(userId: String?, token: String?) {if (userId != null && token != null) { try { val userDocRef = Firebase.firestore.collection("users").document(userId); userDocRef.set(mapOf("fcmToken" to token), SetOptions.merge()).await(); Log.d("FCM Token", "Token saved/updated for user $userId") } catch (e: Exception) { Log.e("FCM Token", "Error saving token for user $userId", e) } } else { Log.w("FCM Token", "Cannot save token - userId or token is null.") } }
 
 // --- EnterNameScreen composable --- (Unchanged)
 @Composable

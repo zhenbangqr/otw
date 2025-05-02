@@ -47,7 +47,7 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
-import com.zhenbang.otw.viewmodel.LiveLocationViewModel
+import com.zhenbang.otw.ui.viewmodel.LiveLocationViewModel
 import kotlinx.coroutines.launch
 import java.util.Locale
 

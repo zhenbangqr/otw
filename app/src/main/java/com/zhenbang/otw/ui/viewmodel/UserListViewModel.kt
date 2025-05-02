@@ -1,4 +1,4 @@
-package com.zhenbang.otw.viewmodel
+package com.zhenbang.otw.ui.viewmodel
 
 import android.util.Log
 import androidx.lifecycle.ViewModel

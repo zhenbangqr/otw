@@ -21,8 +21,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.zhenbang.otw.viewmodel.ChatHistoryItem
-import com.zhenbang.otw.viewmodel.ChatHistoryViewModel
+import com.zhenbang.otw.ui.viewmodel.ChatHistoryItem
+import com.zhenbang.otw.ui.viewmodel.ChatHistoryViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 

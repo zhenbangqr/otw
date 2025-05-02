@@ -1,4 +1,4 @@
-package com.zhenbang.otw.viewmodel
+package com.zhenbang.otw.ui.viewmodel
 
 import android.Manifest // Import Manifest for permission check
 import android.annotation.SuppressLint // For suppressing location permission check lint warning

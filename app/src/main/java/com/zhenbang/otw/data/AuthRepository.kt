@@ -21,4 +21,5 @@ interface AuthRepository {
     suspend fun getAllUserProfilesFromFirestore(): Result<List<UserProfile>>
     suspend fun blockUser(currentUserId: String, userIdToBlock: String): Result<Unit>
     suspend fun unblockUser(currentUserId: String, userIdToUnblock: String): Result<Unit>
+    suspend fun saveFcmToken(userId: String, token: String): Result<Unit>
 }

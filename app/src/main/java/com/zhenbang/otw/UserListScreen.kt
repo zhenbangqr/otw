@@ -17,8 +17,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.zhenbang.otw.viewmodel.UserInfo
-import com.zhenbang.otw.viewmodel.UserListViewModel
+import com.zhenbang.otw.ui.viewmodel.UserInfo
+import com.zhenbang.otw.ui.viewmodel.UserListViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
