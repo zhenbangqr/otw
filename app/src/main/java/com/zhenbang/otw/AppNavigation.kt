@@ -48,6 +48,7 @@ import com.zhenbang.otw.profile.language.LanguageScreen
 import com.zhenbang.otw.profile.manageAccount.ManageAccountScreen
 import com.zhenbang.otw.profile.privacy.PrivacyScreen
 import com.zhenbang.otw.ui.screen.HomeScreen
+import com.zhenbang.otw.ui.viewmodel.LiveLocationViewModel
 import com.zhenbang.otw.ui.viewmodel.NewsViewModel
 import com.zhenbang.otw.ui.viewmodel.WeatherViewModel
 
@@ -388,14 +389,16 @@ fun AppNavigation() {
             val newsViewModel: NewsViewModel = viewModel()
             val weatherViewModel: WeatherViewModel = viewModel()
             val departmentViewModel: DepartmentViewModel = viewModel(factory = DepartmentViewModel.Factory(context))
+            val liveLocationViewModel: LiveLocationViewModel = viewModel() // Obtain LiveLocationViewModel
             // Call the new HomeScreen
             HomeScreen(
+                navController = navController,
                 profileViewModel = profileViewModel,
                 newsViewModel = newsViewModel,
                 weatherViewModel = weatherViewModel,
                 departmentViewModel = departmentViewModel,
+                liveLocationViewModel = liveLocationViewModel,
                 onNavigateToProfile = { navController.navigate(AppDestinations.PROFILE_ROUTE) },
-
                 onNavigateToNotifications = {
                     // TODO: Define Notifications route in AppDestinations and navigate
                     Log.d("AppNavigation", "Navigate to Notifications clicked (Not Implemented)")
