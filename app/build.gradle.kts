@@ -83,4 +83,6 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("com.google.firebase:firebase-messaging-ktx")
+    implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("com.google.firebase:firebase-storage-ktx")
 }
