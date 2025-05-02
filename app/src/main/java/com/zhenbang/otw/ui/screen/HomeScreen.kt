@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.GridView
@@ -27,6 +28,9 @@ import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material.icons.filled.SortByAlpha
+import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -84,6 +88,8 @@ fun HomeScreen(
     var selectedContent by rememberSaveable { mutableStateOf("Dashboard") }
 
     var isWorkspaceGridView by rememberSaveable { mutableStateOf(true) }
+    var isSortAscending by rememberSaveable { mutableStateOf(true) }
+    // Modify the displayed list based on the sorting state
 
     val bottomNavItems = listOf("Dashboard", "Location", "Workspaces", "Chat")
 
@@ -114,6 +120,9 @@ fun HomeScreen(
                 navigationIcon = {},
                 actions = {
                     if (selectedContent == "Workspaces") {
+                        IconButton(onClick = { isSortAscending = !isSortAscending }) {
+                            Icon(Icons.Filled.Sort, contentDescription = "Sort")
+                        }
                         IconButton(onClick = { isWorkspaceGridView = !isWorkspaceGridView }) {
                             Icon(
                                 imageVector = if (isWorkspaceGridView) Icons.Filled.List else Icons.Filled.GridView,
@@ -193,7 +202,8 @@ fun HomeScreen(
                         modifier = Modifier.fillMaxSize(),
                         departmentViewModel = departmentViewModel,
                         isGridView = isWorkspaceGridView, // Pass the view mode state
-                        onNavigateToDepartmentDetails = onNavigateToDepartmentDetails // Pass the callback down
+                        onNavigateToDepartmentDetails = onNavigateToDepartmentDetails, // Pass the callback down
+                        isSortAscending = isSortAscending
                     )
                 }
                 "Location" -> {

@@ -1,5 +1,6 @@
 package com.zhenbang.otw.departments
 
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -22,7 +23,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel // Keep viewModel import
 import coil.compose.AsyncImage
+import com.google.firebase.auth.FirebaseAuth
 import com.zhenbang.otw.database.Department
+import kotlinx.coroutines.launch
+import android.widget.Toast
 
 // Composable responsible for displaying the workspace content (departments)
 @Composable
@@ -30,38 +34,104 @@ fun WorkspaceContent(
     modifier: Modifier = Modifier,
     departmentViewModel: DepartmentViewModel, // Needs the ViewModel
     isGridView: Boolean, // Pass grid/list state
-    onNavigateToDepartmentDetails: (departmentId: Int, departmentName: String) -> Unit // Navigation callback
+    onNavigateToDepartmentDetails: (departmentId: Int, departmentName: String) -> Unit, // Navigation callback
+    isSortAscending: Boolean // Pass sorting state
 ) {
-    val departments = departmentViewModel.allDepartments.collectAsState(initial = emptyList())
+    val context = LocalContext.current
+    // Observe user-specific departments from ViewModel
+    val userDepartments by departmentViewModel.userDepartments.collectAsState()
+    val currentUserEmail = FirebaseAuth.getInstance().currentUser?.email // Get email
+    val coroutineScope = rememberCoroutineScope() // Scope for dialog actions
+
+    // Dialog states managed here
     var showDialog by rememberSaveable { mutableStateOf(false) }
     var departmentName by rememberSaveable { mutableStateOf("") }
     var imageUrl by rememberSaveable { mutableStateOf("") }
 
+    // --- Sorting Logic ---
+    val sortedDepartments = remember(userDepartments, isSortAscending) {
+        Log.d("WorkspaceContent", "Recalculating sorted list. Asc: $isSortAscending")
+        if (isSortAscending) {
+            userDepartments.sortedBy { it.departmentName.lowercase() }
+        } else {
+            userDepartments.sortedByDescending { it.departmentName.lowercase() }
+        }
+    }
+
+    LaunchedEffect(currentUserEmail) {
+        if (currentUserEmail != null) {
+            departmentViewModel.loadDepartmentsForCurrentUser(currentUserEmail)
+        }
+    }
+
     Box(modifier = modifier.fillMaxSize()) { // Use Box to allow FAB positioning
         if (isGridView) {
             LazyVerticalGrid(
-                columns = GridCells.Fixed(3), // Adjust columns as needed
+                columns = GridCells.Fixed(3),
                 modifier = Modifier
-                    .fillMaxSize() // Fill the available space
-                    .padding(8.dp),
-                contentPadding = PaddingValues(bottom = 80.dp) // Add padding for FAB
+                    .padding(8.dp)
             ) {
-                items(departments.value, key = { it.departmentId }) { department ->
-                    DepartmentGridItem(department = department) {
-                        onNavigateToDepartmentDetails(department.departmentId, department.departmentName)
+                items(sortedDepartments) { department ->
+                    Card(
+                        modifier = Modifier
+                            .padding(8.dp)
+                            .clickable {
+                                onNavigateToDepartmentDetails(department.departmentId, department.departmentName)
+                            },
+                        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            AsyncImage(
+                                model = department.imageUrl,
+                                contentDescription = department.departmentName,
+                                modifier = Modifier
+                                    .size(120.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                            )
+
+                            Text(
+                                text = department.departmentName, fontSize = 16.sp
+                            )
+                        }
                     }
                 }
             }
         } else {
             LazyColumn(
                 modifier = Modifier
-                    .fillMaxSize() // Fill the available space
-                    .padding(8.dp),
-                contentPadding = PaddingValues(bottom = 80.dp) // Add padding for FAB
+                    .padding(8.dp)
             ) {
-                items(departments.value, key = { it.departmentId }) { department ->
-                    DepartmentListItem(department = department) {
-                        onNavigateToDepartmentDetails(department.departmentId, department.departmentName)
+                items(sortedDepartments) { department ->
+                    Card(
+                        modifier = Modifier
+                            .padding(8.dp)
+                            .clickable {
+                                onNavigateToDepartmentDetails(department.departmentId, department.departmentName)
+                            },
+                        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                        ) {
+                            AsyncImage(
+                                model = department.imageUrl,
+                                contentDescription = department.departmentName,
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                            )
+
+                            Text(
+                                text = department.departmentName,
+                                fontSize = 16.sp,
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -93,13 +163,34 @@ fun WorkspaceContent(
             },
             confirmButton = {
                 Button(onClick = {
-                    if (departmentName.isNotEmpty()) {
-                        departmentViewModel.insertDepartment(departmentName, imageUrl.trim())
-                        departmentName = ""
-                        imageUrl = ""
-                        showDialog = false
+                    val finalName = departmentName.trim()
+                    val finalImageUrl = imageUrl.trim().ifEmpty { null } // Use null if blank
+                    if (finalName.isNotEmpty()) {
+                        if (currentUserEmail != null) {
+                            coroutineScope.launch { // Use coroutineScope
+                                departmentViewModel.insertDepartment(
+                                    departmentName = finalName,
+                                    imageUrl = finalImageUrl,
+                                    creatorEmail = currentUserEmail // Pass email
+                                )
+                                departmentName = "" // Clear fields after adding
+                                imageUrl = ""
+                                showDialog = false // Close dialog
+                            }
+                        } else {
+                            Log.e("WorkspaceContent", "Cannot add department: User email is null.")
+                            coroutineScope.launch {
+                                Toast.makeText(context, "Error: Could not get user email.", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    } else {
+                        coroutineScope.launch {
+                            Toast.makeText(context, "Department name cannot be empty.", Toast.LENGTH_SHORT).show()
+                        }
                     }
-                }) { Text("Add") }
+                },
+                    enabled = departmentName.isNotBlank() // Enable only if name is not blank
+                ) { Text("Add") }
             },
             dismissButton = { Button(onClick = { showDialog = false }) { Text("Cancel") } }
         )

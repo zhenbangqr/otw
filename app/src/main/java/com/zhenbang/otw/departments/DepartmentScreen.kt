@@ -947,8 +947,6 @@ fun TaskList(
             modifier = Modifier
                 .padding(16.dp)
                 .fillMaxWidth(),
-            text = "No tasks assigned yet. Tap 'Add New Task' to create one.",
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
             textAlign = TextAlign.Center,
             style = typography.bodyMedium // Ensure MaterialTheme is imported
         )
