@@ -58,13 +58,17 @@ import java.io.IOException // Import IOException
 import java.text.SimpleDateFormat // For displaying selected dates
 import java.util.* // For Date, Calendar, Locale
 import java.util.concurrent.TimeUnit // For time formatting
+import com.zhenbang.otw.ui.viewmodel.ZpViewModel // Import MessagingScreen
+import com.zhenbang.otw.util.UiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MessagingScreen(
     navController: NavController,
-    userIdToChatWith: String // This is the 'otherUserUid'
+    userIdToChatWith: String, // This is the 'otherUserUid'
+    zpViewModel: ZpViewModel = viewModel()
 ) {
+
     val currentUserUid = FirebaseAuth.getInstance().currentUser?.uid
     val context = LocalContext.current
     val application = context.applicationContext as Application
@@ -103,68 +107,274 @@ fun MessagingScreen(
     var imageToShowFullScreen by rememberSaveable { mutableStateOf<String?>(null) }
     var previewImageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
 
-    // --- State for Timeframe Selection & JSON Export ---
+    // --- State for Timeframe Selection & JSON Export (Remains the same) ---
     var showDateRangePicker by remember { mutableStateOf(false) }
-    val dateRangePickerState = rememberDateRangePickerState() // Material 3 Date Range Picker state
+    // *** Instantiate the DateRangePickerState here ***
+    val dateRangePickerState = rememberDateRangePickerState()
     var selectedStartDateMillis by rememberSaveable { mutableStateOf<Long?>(null) }
     var selectedEndDateMillis by rememberSaveable { mutableStateOf<Long?>(null) }
     var showJsonDialog by remember { mutableStateOf(false) }
-    var generatedJson by remember { mutableStateOf("") }
+    var generatedJson by remember { mutableStateOf("") } // Will hold the generated JSON
 
     // --- Permissions Handling ---
-    val imagePermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_IMAGES else Manifest.permission.READ_EXTERNAL_STORAGE
-    var hasImagePermission by remember { mutableStateOf(ContextCompat.checkSelfPermission(context, imagePermission) == PackageManager.PERMISSION_GRANTED) }
-    val imagePermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted -> hasImagePermission = isGranted; if (!isGranted) Log.w("Permission", "Image permission denied.") }
+    val imagePermission =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_IMAGES else Manifest.permission.READ_EXTERNAL_STORAGE
+    var hasImagePermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context,
+                imagePermission
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val imagePermissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            hasImagePermission = isGranted; if (!isGranted) Log.w(
+            "Permission",
+            "Image permission denied."
+        )
+        }
     val audioPermission = Manifest.permission.RECORD_AUDIO
-    var hasAudioPermission by remember { mutableStateOf(ContextCompat.checkSelfPermission(context, audioPermission) == PackageManager.PERMISSION_GRANTED) }
-    val audioPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted -> hasAudioPermission = isGranted; if (!isGranted) { Log.w("Permission", "Audio permission denied."); Toast.makeText(context, "Audio permission needed", Toast.LENGTH_SHORT).show() } }
-    val locationPermissions = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-    var hasLocationPermission by remember { mutableStateOf(locationPermissions.any { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }) }
-    val locationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions -> hasLocationPermission = permissions.values.any { it }; if (!hasLocationPermission) { Log.w("Permission", "Location permission denied."); Toast.makeText(context, "Location permission needed", Toast.LENGTH_SHORT).show() } else { viewModel.sendCurrentLocation() } }
-    val imagePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? -> if (uri != null) previewImageUri = uri else Log.d("ImagePicker", "No image selected") }
+    var hasAudioPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context,
+                audioPermission
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val audioPermissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            hasAudioPermission = isGranted; if (!isGranted) {
+            Log.w("Permission", "Audio permission denied."); Toast.makeText(
+                context,
+                "Audio permission needed",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+        }
+    val locationPermissions = arrayOf(
+        Manifest.permission.ACCESS_FINE_LOCATION,
+        Manifest.permission.ACCESS_COARSE_LOCATION
+    )
+    var hasLocationPermission by remember {
+        mutableStateOf(locationPermissions.any {
+            ContextCompat.checkSelfPermission(
+                context,
+                it
+            ) == PackageManager.PERMISSION_GRANTED
+        })
+    }
+    val locationPermissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+            hasLocationPermission = permissions.values.any { it }; if (!hasLocationPermission) {
+            Log.w("Permission", "Location permission denied."); Toast.makeText(
+                context,
+                "Location permission needed",
+                Toast.LENGTH_SHORT
+            ).show()
+        } else {
+            viewModel.sendCurrentLocation()
+        }
+        }
+    val imagePickerLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
+            if (uri != null) previewImageUri = uri else Log.d("ImagePicker", "No image selected")
+        }
 
 
     // --- Audio Playback Logic ---
-    fun formatTimeMillis(millis: Long): String { if (millis < 0) return "00:00"; val minutes = TimeUnit.MILLISECONDS.toMinutes(millis); val seconds = TimeUnit.MILLISECONDS.toSeconds(millis) - TimeUnit.MINUTES.toSeconds(minutes); return String.format("%02d:%02d", minutes, seconds) }
-    val playbackScope = rememberCoroutineScope(); var playbackJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
-    fun playAudio(url: String, messageId: String) { /* ... keep existing implementation ... */ if (currentlyPlayingMessageId == messageId) { playbackJob?.cancel(); try { mediaPlayer.stop(); mediaPlayer.reset() } catch (e: IllegalStateException){/*ignore*/} finally { currentlyPlayingMessageId = null; currentAudioPosition = 0L; currentAudioDuration = 0L; }; return }; try { playbackJob?.cancel(); if (mediaPlayer.isPlaying) mediaPlayer.stop(); mediaPlayer.reset(); mediaPlayer.setDataSource(url); mediaPlayer.prepareAsync(); mediaPlayer.setOnPreparedListener { mp -> currentAudioDuration = if(mp.duration > 0) mp.duration.toLong() else 0L; currentAudioPosition = 0L; mp.start(); currentlyPlayingMessageId = messageId; playbackJob = playbackScope.launch { while (mp.isPlaying && currentlyPlayingMessageId == messageId) { try { currentAudioPosition = mp.currentPosition.toLong() } catch (e: IllegalStateException) { Log.w("MediaPlayer", "Failed to get current position."); break }; delay(100) }; if(currentlyPlayingMessageId == messageId && !mp.isPlaying) { try { currentAudioPosition = mp.currentPosition.toLong() } catch (e: IllegalStateException) { Log.w("MediaPlayer", "Failed to get final position."); currentAudioPosition = currentAudioDuration } } } }; mediaPlayer.setOnCompletionListener { mp -> playbackJob?.cancel(); if (currentlyPlayingMessageId == messageId) { currentlyPlayingMessageId = null; currentAudioPosition = 0L; currentAudioDuration = 0L; }; try { mp.reset() } catch (e: Exception) { Log.e("MediaPlayer", "Error resetting on completion", e) } }; mediaPlayer.setOnErrorListener { mp, _, _ -> Log.e("MediaPlayer", "Error playing audio"); Toast.makeText(context, "Error playing audio", Toast.LENGTH_SHORT).show(); playbackJob?.cancel(); if (currentlyPlayingMessageId == messageId) { currentlyPlayingMessageId = null; currentAudioPosition = 0L; currentAudioDuration = 0L; }; try { mp.reset() } catch (e: Exception) { Log.e("MediaPlayer", "Error resetting on error", e) }; true } } catch (e: Exception) { Log.e("MediaPlayer", "Playback setup failed", e); Toast.makeText(context, "Cannot play audio", Toast.LENGTH_SHORT).show(); playbackJob?.cancel(); if (currentlyPlayingMessageId == messageId) { currentlyPlayingMessageId = null; currentAudioPosition = 0L; currentAudioDuration = 0L; }; try { mediaPlayer.reset() } catch (e: Exception) { Log.e("MediaPlayer", "Error resetting after setup failure", e) } } }
-    fun stopAudio() { /* ... keep existing implementation ... */ playbackJob?.cancel(); try { if (mediaPlayer.isPlaying) mediaPlayer.stop(); mediaPlayer.reset() } catch (e: IllegalStateException) { Log.e("MediaPlayer", "Error stopping/resetting MediaPlayer", e) }; currentlyPlayingMessageId = null; currentAudioPosition = 0L; currentAudioDuration = 0L }
-    DisposableEffect(Unit) { onDispose { playbackJob?.cancel(); try { mediaPlayer.release() } catch (e: Exception) { Log.e("MediaPlayer", "Error releasing MediaPlayer", e) } } }
+    fun formatTimeMillis(millis: Long): String {
+        if (millis < 0) return "00:00";
+        val minutes = TimeUnit.MILLISECONDS.toMinutes(millis);
+        val seconds =
+            TimeUnit.MILLISECONDS.toSeconds(millis) - TimeUnit.MINUTES.toSeconds(minutes); return String.format(
+            "%02d:%02d",
+            minutes,
+            seconds
+        )
+    }
+
+    val playbackScope = rememberCoroutineScope();
+    var playbackJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    fun playAudio(
+        url: String,
+        messageId: String
+    ) { /* ... keep existing implementation ... */ if (currentlyPlayingMessageId == messageId) {
+        playbackJob?.cancel(); try {
+            mediaPlayer.stop(); mediaPlayer.reset()
+        } catch (e: IllegalStateException) {/*ignore*/
+        } finally {
+            currentlyPlayingMessageId = null; currentAudioPosition = 0L; currentAudioDuration =
+                0L; }; return
+    }; try {
+        playbackJob?.cancel(); if (mediaPlayer.isPlaying) mediaPlayer.stop(); mediaPlayer.reset(); mediaPlayer.setDataSource(
+            url
+        ); mediaPlayer.prepareAsync(); mediaPlayer.setOnPreparedListener { mp ->
+            currentAudioDuration =
+                if (mp.duration > 0) mp.duration.toLong() else 0L; currentAudioPosition =
+            0L; mp.start(); currentlyPlayingMessageId = messageId; playbackJob =
+            playbackScope.launch {
+                while (mp.isPlaying && currentlyPlayingMessageId == messageId) {
+                    try {
+                        currentAudioPosition = mp.currentPosition.toLong()
+                    } catch (e: IllegalStateException) {
+                        Log.w("MediaPlayer", "Failed to get current position."); break
+                    }; delay(100)
+                }; if (currentlyPlayingMessageId == messageId && !mp.isPlaying) {
+                try {
+                    currentAudioPosition = mp.currentPosition.toLong()
+                } catch (e: IllegalStateException) {
+                    Log.w("MediaPlayer", "Failed to get final position."); currentAudioPosition =
+                        currentAudioDuration
+                }
+            }
+            }
+        }; mediaPlayer.setOnCompletionListener { mp ->
+            playbackJob?.cancel(); if (currentlyPlayingMessageId == messageId) {
+            currentlyPlayingMessageId = null; currentAudioPosition = 0L; currentAudioDuration =
+                0L; }; try {
+            mp.reset()
+        } catch (e: Exception) {
+            Log.e("MediaPlayer", "Error resetting on completion", e)
+        }
+        }; mediaPlayer.setOnErrorListener { mp, _, _ ->
+            Log.e(
+                "MediaPlayer",
+                "Error playing audio"
+            ); Toast.makeText(context, "Error playing audio", Toast.LENGTH_SHORT)
+            .show(); playbackJob?.cancel(); if (currentlyPlayingMessageId == messageId) {
+            currentlyPlayingMessageId = null; currentAudioPosition = 0L; currentAudioDuration =
+                0L; }; try {
+            mp.reset()
+        } catch (e: Exception) {
+            Log.e("MediaPlayer", "Error resetting on error", e)
+        }; true
+        }
+    } catch (e: Exception) {
+        Log.e("MediaPlayer", "Playback setup failed", e); Toast.makeText(
+            context,
+            "Cannot play audio",
+            Toast.LENGTH_SHORT
+        ).show(); playbackJob?.cancel(); if (currentlyPlayingMessageId == messageId) {
+            currentlyPlayingMessageId = null; currentAudioPosition = 0L; currentAudioDuration =
+                0L; }; try {
+            mediaPlayer.reset()
+        } catch (e: Exception) {
+            Log.e("MediaPlayer", "Error resetting after setup failure", e)
+        }
+    }
+    }
+
+    fun stopAudio() { /* ... keep existing implementation ... */ playbackJob?.cancel(); try {
+        if (mediaPlayer.isPlaying) mediaPlayer.stop(); mediaPlayer.reset()
+    } catch (e: IllegalStateException) {
+        Log.e("MediaPlayer", "Error stopping/resetting MediaPlayer", e)
+    }; currentlyPlayingMessageId = null; currentAudioPosition = 0L; currentAudioDuration = 0L
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            playbackJob?.cancel(); try {
+            mediaPlayer.release()
+        } catch (e: Exception) {
+            Log.e("MediaPlayer", "Error releasing MediaPlayer", e)
+        }
+        }
+    }
 
 
     // --- Effects ---
-    LaunchedEffect(messages.size) { if (messages.isNotEmpty()) { val targetIndex = (messages.size - 1).coerceAtLeast(0); if (targetIndex < listState.layoutInfo.totalItemsCount) listState.animateScrollToItem(index = targetIndex); else if (listState.layoutInfo.totalItemsCount > 0) listState.animateScrollToItem(index = listState.layoutInfo.totalItemsCount - 1) } }
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            val targetIndex =
+                (messages.size - 1).coerceAtLeast(0); if (targetIndex < listState.layoutInfo.totalItemsCount) listState.animateScrollToItem(
+                index = targetIndex
+            ); else if (listState.layoutInfo.totalItemsCount > 0) listState.animateScrollToItem(
+                index = listState.layoutInfo.totalItemsCount - 1
+            )
+        }
+    }
 
-    // --- JSON Generation Logic ---
-    fun generateJsonForTimeframe() {
-        if (selectedStartDateMillis == null || selectedEndDateMillis == null) {
-            Toast.makeText(context, "Please select a start and end date", Toast.LENGTH_SHORT).show()
+    // This function now takes the confirmed dates as parameters
+    fun generateJsonAndShowDialog(startMillis: Long?, endMillis: Long?) {
+        if (startMillis == null || endMillis == null) {
+            Toast.makeText(context, "Invalid date range selected", Toast.LENGTH_SHORT).show()
             return
         }
+
+        // Store the confirmed dates (useful for display)
+        selectedStartDateMillis = startMillis
+        selectedEndDateMillis = endMillis
+
         // Adjust end date to be end of the selected day (e.g., 23:59:59.999) for inclusive check
         val adjustedEndDateMillis = Calendar.getInstance().apply {
-            timeInMillis = selectedEndDateMillis!!
+            timeInMillis = endMillis
             set(Calendar.HOUR_OF_DAY, 23)
             set(Calendar.MINUTE, 59)
             set(Calendar.SECOND, 59)
             set(Calendar.MILLISECOND, 999)
         }.timeInMillis
 
-        // Filter messages (make sure message.timestamp is not null)
+        // Filter messages based on the *passed-in* adjusted timeframe
+        // Ensure message.timestamp is not null before trying to access it
         val filteredMessages = messages.filter { msg ->
-            val msgTimestamp = msg.timestamp?.toDate()?.time ?: return@filter false // Skip if no timestamp
-            msgTimestamp >= selectedStartDateMillis!! && msgTimestamp <= adjustedEndDateMillis
+            val msgTimestamp = msg.timestamp?.toDate()?.time
+            // Check if timestamp is valid and within the range
+            msgTimestamp != null && msgTimestamp >= startMillis && msgTimestamp <= adjustedEndDateMillis
         }
 
+        // --- CORE CHANGE: Check if any messages were actually found ---
         if (filteredMessages.isEmpty()) {
-            Toast.makeText(context, "No messages found in the selected timeframe", Toast.LENGTH_SHORT).show()
-            generatedJson = "[]" // Set empty JSON array
-        } else {
-            // Generate JSON using the utility function
-            generatedJson = JsonFormatter.formatMessagesToJson(filteredMessages)
+            // If no messages, inform the user and DO NOT proceed
+            Toast.makeText(
+                context,
+                "No messages found in the selected timeframe to analyze.",
+                Toast.LENGTH_LONG // Longer duration might be helpful
+            ).show()
+            Log.w(
+                "JSONExport",
+                "No messages found for timeframe $startMillis - $endMillis. AI Dialog will not be shown."
+            )
+            return // <-- Exit the function here, preventing dialog display
         }
-        Log.d("JSONExport", "Generated JSON:\n$generatedJson") // Log the JSON
-        showJsonDialog = true // Show the dialog with the JSON
+
+        // --- If messages WERE found, proceed to generate JSON and show dialog ---
+        try {
+            // Generate JSON using the utility function
+            val jsonResult = JsonFormatter.formatMessagesToJson(filteredMessages)
+
+            // Optional safety check: Ensure formatter didn't return empty/invalid JSON
+            // for a non-empty list (depends on JsonFormatter implementation)
+            if (jsonResult.isBlank() || jsonResult == "[]") {
+                Toast.makeText(
+                    context,
+                    "Failed to generate valid analysis data from messages.",
+                    Toast.LENGTH_LONG
+                ).show()
+                Log.e(
+                    "JSONExport",
+                    "JsonFormatter returned blank/empty array for non-empty message list."
+                )
+                return // Exit if formatting unexpectedly failed
+            }
+
+
+            generatedJson = jsonResult // Store the generated JSON
+            Log.d("JSONExport", "Generated JSON for AI:\n$generatedJson") // Log the JSON
+
+            // Reset AI ViewModel state (assuming resetState function exists now)
+            // If resetState() doesn't exist, remove this line but be aware of potential stale states
+            zpViewModel.resetState()
+
+            // Show the AI dialog only because we have valid JSON
+            showJsonDialog = true
+
+        } catch (e: Exception) {
+            // Catch potential errors during the JSON formatting itself
+            Log.e("JSONExport", "Error generating JSON from message list", e)
+            Toast.makeText(context, "Error preparing data for analysis.", Toast.LENGTH_LONG).show()
+            // Do not show the dialog if formatting failed
+        }
     }
 
     // --- UI Structure ---
@@ -182,35 +392,50 @@ fun MessagingScreen(
                     IconButton(onClick = { showDateRangePicker = true }) {
                         Icon(Icons.Filled.DateRange, contentDescription = "Select Timeframe")
                     }
-                    // Button to trigger JSON generation (enabled only when dates are selected)
-                    IconButton(
-                        onClick = { generateJsonForTimeframe() },
-                        enabled = selectedStartDateMillis != null && selectedEndDateMillis != null
-                    ) {
-                        Icon(Icons.Filled.Summarize, contentDescription = "Generate Summary JSON") // Example icon
-                    }
                 }
             )
         }
     ) { paddingValues ->
-        Column( modifier = Modifier.fillMaxSize().padding(paddingValues).imePadding() ) {
-            // Display selected timeframe (optional)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .imePadding()
+        ) {
+            // Display selected timeframe (optional, uses the stored selected dates)
             if (selectedStartDateMillis != null && selectedEndDateMillis != null) {
                 val formatter = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
                 Text(
-                    text = "Selected: ${formatter.format(Date(selectedStartDateMillis!!))} - ${formatter.format(Date(selectedEndDateMillis!!))}",
+                    text = "Timeframe for analysis: ${formatter.format(Date(selectedStartDateMillis!!))} - ${
+                        formatter.format(
+                            Date(selectedEndDateMillis!!)
+                        )
+                    }",
                     style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp).align(Alignment.CenterHorizontally)
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .align(Alignment.CenterHorizontally)
                 )
             }
 
-            if (isUploadingImage || isUploadingAudio || isFetchingLocation) { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
-            error?.let { Text(text = "Error: $it", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) }
+            if (isUploadingImage || isUploadingAudio || isFetchingLocation) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+            error?.let {
+                Text(
+                    text = "Error: $it",
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+            }
 
             // --- Message List ---
             LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(horizontal = 8.dp),
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
                 items(
@@ -221,7 +446,9 @@ fun MessagingScreen(
                     }
                 ) { message -> // message is ChatMessage from the lambda parameter
                     val isCurrentlyPlaying = message.messageId == currentlyPlayingMessageId
-                    val displayDuration = if (isCurrentlyPlaying) currentAudioDuration else (message.audioDurationMillis ?: 0L)
+                    val displayDuration =
+                        if (isCurrentlyPlaying) currentAudioDuration else (message.audioDurationMillis
+                            ?: 0L)
                     val displayPosition = if (isCurrentlyPlaying) currentAudioPosition else 0L
                     MessageBubble(
                         message = message,
@@ -232,98 +459,283 @@ fun MessagingScreen(
                         formatTime = ::formatTimeMillis,
                         onImageClick = { imageUrl -> imageToShowFullScreen = imageUrl },
                         // *** Added fallback for messageId in case it's null during playback interaction ***
-                        onPlayAudioClick = { audioUrl -> playAudio(audioUrl, message.messageId ?: "") }
+                        onPlayAudioClick = { audioUrl ->
+                            playAudio(
+                                audioUrl,
+                                message.messageId ?: ""
+                            )
+                        }
                     )
                 }
             } // --- End Message List ---
 
             // --- Image Preview or Message Input ---
             if (previewImageUri != null) {
-                ImagePreviewArea( uri = previewImageUri!!, onSendClick = { viewModel.sendImageMessage(previewImageUri!!, context.contentResolver); previewImageUri = null }, onCancelClick = { previewImageUri = null } )
+                ImagePreviewArea(
+                    uri = previewImageUri!!,
+                    onSendClick = {
+                        viewModel.sendImageMessage(
+                            previewImageUri!!,
+                            context.contentResolver
+                        ); previewImageUri = null
+                    },
+                    onCancelClick = { previewImageUri = null })
             } else {
-                MessageInput( text = messageText, onTextChanged = { messageText = it }, onSendClick = { if (messageText.isNotBlank()) { viewModel.sendMessage(messageText); messageText = "" } }, onAttachImageClick = { if (hasImagePermission) { imagePickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) } else { imagePermissionLauncher.launch(imagePermission) } }, isRecording = isRecording, onRecordStart = { if (hasAudioPermission) { viewModel.startRecording() } else { audioPermissionLauncher.launch(audioPermission) } }, onRecordStop = { viewModel.stopRecordingAndSend() }, onSendLocationClick = { if (hasLocationPermission) { viewModel.sendCurrentLocation() } else { locationPermissionLauncher.launch(locationPermissions) } }, isFetchingLocation = isFetchingLocation )
+                MessageInput(
+                    text = messageText,
+                    onTextChanged = { messageText = it },
+                    onSendClick = {
+                        if (messageText.isNotBlank()) {
+                            viewModel.sendMessage(messageText); messageText = ""
+                        }
+                    },
+                    onAttachImageClick = {
+                        if (hasImagePermission) {
+                            imagePickerLauncher.launch(
+                                PickVisualMediaRequest(
+                                    ActivityResultContracts.PickVisualMedia.ImageOnly
+                                )
+                            )
+                        } else {
+                            imagePermissionLauncher.launch(imagePermission)
+                        }
+                    },
+                    isRecording = isRecording,
+                    onRecordStart = {
+                        if (hasAudioPermission) {
+                            viewModel.startRecording()
+                        } else {
+                            audioPermissionLauncher.launch(audioPermission)
+                        }
+                    },
+                    onRecordStop = { viewModel.stopRecordingAndSend() },
+                    onSendLocationClick = {
+                        if (hasLocationPermission) {
+                            viewModel.sendCurrentLocation()
+                        } else {
+                            locationPermissionLauncher.launch(locationPermissions)
+                        }
+                    },
+                    isFetchingLocation = isFetchingLocation
+                )
             }
         } // End Column
     } // End Scaffold
 
     // --- Dialogs ---
 
-    // Date Range Picker Dialog
     if (showDateRangePicker) {
+        // Use the state declared earlier
+        // val dateRangePickerState = rememberDateRangePickerState() // Defined above
+
         DatePickerDialog(
             onDismissRequest = { showDateRangePicker = false },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        showDateRangePicker = false // Dismiss dialog
-                        selectedStartDateMillis = dateRangePickerState.selectedStartDateMillis
-                        selectedEndDateMillis = dateRangePickerState.selectedEndDateMillis
-                        Log.d("DatePicker", "Selected Start: ${selectedStartDateMillis}, End: ${selectedEndDateMillis}")
+                        // --- THIS IS THE CORE CHANGE ---
+                        // 1. Get selected dates from the picker state
+                        val startMillis = dateRangePickerState.selectedStartDateMillis
+                        val endMillis = dateRangePickerState.selectedEndDateMillis
+
+                        // 2. Close the date picker
+                        showDateRangePicker = false
+
+                        // 3. Call the function to generate JSON and show the AI dialog
+                        generateJsonAndShowDialog(startMillis, endMillis)
+                        // --- End of core change ---
                     },
-                    enabled = dateRangePickerState.selectedEndDateMillis != null // Enable only when range is selected
-                ) { Text("OK") }
+                    // Enable OK only when a valid range is selected
+                    enabled = dateRangePickerState.selectedStartDateMillis != null &&
+                            dateRangePickerState.selectedEndDateMillis != null &&
+                            // Ensure end date is not before start date
+                            (dateRangePickerState.selectedEndDateMillis
+                                ?: 0) >= (dateRangePickerState.selectedStartDateMillis ?: 0)
+                ) { Text("Confirm Timeframe") } // Changed text slightly for clarity
             },
             dismissButton = {
                 TextButton(onClick = { showDateRangePicker = false }) { Text("Cancel") }
             }
         ) {
-            DateRangePicker(state = dateRangePickerState) // Material 3 Date Range Picker
+            DateRangePicker(state = dateRangePickerState) // Pass the state here
         }
     }
 
-    // Dialog to display generated JSON (Simple example)
+    // --- MODIFIED: AI Interaction Dialog (Ensure state reset on close) ---
     if (showJsonDialog) {
+        val apiState by zpViewModel.apiDataState.collectAsStateWithLifecycle() // Use collectAsStateWithLifecycle
+
         AlertDialog(
-            onDismissRequest = { showJsonDialog = false },
-            title = { Text("Generated JSON for AI") },
+            onDismissRequest = {
+                showJsonDialog = false
+                // --- Reset ViewModel state when dialog is dismissed externally ---
+                zpViewModel.resetState()
+            },
+            title = { Text("AI Analysis Input") }, // Adjusted title
             text = {
-                // Scrollable text area for potentially long JSON
-                LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
-                    item { Text(generatedJson) }
+                // Use the extracted content composable (assuming you have it from previous examples)
+                // AiDialogContent(apiState = apiState, jsonToSend = generatedJson)
+
+                // Or inline it as before:
+                Box( /* ... Box setup ... */
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 150.dp, max = 400.dp), // Adjust max height if needed
+                    contentAlignment = Alignment.Center
+                ) {
+                    when (val state = apiState) {
+                        is UiState.Idle -> {
+                            LazyColumn { // Make JSON scrollable
+                                item { Text("JSON to send to AI:", fontWeight = FontWeight.Bold) }
+                                item { Spacer(Modifier.height(8.dp)) }
+                                item { Text(generatedJson) } // Display the generated JSON
+                            }
+                        }
+
+                        is UiState.Loading -> {
+                            CircularProgressIndicator()
+                        }
+
+                        is UiState.Success -> {
+                            val responseText = state.data.choices.firstOrNull()?.message?.content
+                                ?: "No content in response."
+                            LazyColumn { // Make response scrollable
+                                item { Text("AI Response:", fontWeight = FontWeight.Bold) }
+                                item { Spacer(Modifier.height(8.dp)) }
+                                item { Text(responseText) }
+                                Log.d("JSONResponse", "AI Response Displayed: $responseText")
+                            }
+                        }
+
+                        is UiState.Error -> {
+                            Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    showJsonDialog = false
-                    // TODO: Implement sending 'generatedJson' to your AI service here
-                    Toast.makeText(context, "JSON ready (logged)", Toast.LENGTH_SHORT).show()
-                }) { Text("OK (Send to AI - Placeholder)") }
+                val isLoading = apiState is UiState.Loading
+                // Define button text and action based on state for Retry logic
+                val buttonText: String
+                val onClickAction: () -> Unit
+                val isEnabled: Boolean
+
+                when (apiState) {
+                    is UiState.Idle -> {
+                        buttonText = "Send to AI"
+                        onClickAction = { zpViewModel.fetchDataFromApi(generatedJson) }
+                        isEnabled = true
+                    }
+
+                    is UiState.Loading -> {
+                        buttonText = "Sending..."
+                        onClickAction = {}
+                        isEnabled = false
+                    }
+
+                    is UiState.Success -> {
+                        buttonText = "Done" // Or "Send Again" if you implement reset+send
+                        onClickAction =
+                            { /* Maybe close dialog? showJsonDialog = false; zpViewModel.resetState() */ }
+                        isEnabled = false // Disable after success unless you want "Send Again"
+                    }
+
+                    is UiState.Error -> {
+                        buttonText = "Retry"
+                        onClickAction =
+                            { zpViewModel.fetchDataFromApi(generatedJson) } // Resend the same JSON
+                        isEnabled = true
+                    }
+                }
+
+                TextButton(
+                    onClick = onClickAction,
+                    enabled = isEnabled
+                ) {
+                    Text(buttonText)
+                }
             },
             dismissButton = {
-                TextButton(onClick = { showJsonDialog = false }) { Text("Close") }
+                TextButton(onClick = {
+                    showJsonDialog = false
+                    // --- Reset ViewModel state on explicit close ---
+                    zpViewModel.resetState()
+                }) { Text("Close") }
             }
         )
     }
 
     // Full Screen Image Dialog
-    if (imageToShowFullScreen != null) { FullScreenImageDialog(imageUrl = imageToShowFullScreen!!, onDismiss = { imageToShowFullScreen = null }) }
+    if (imageToShowFullScreen != null) {
+        FullScreenImageDialog(
+            imageUrl = imageToShowFullScreen!!,
+            onDismiss = { imageToShowFullScreen = null })
+    }
 }
 
 
 // --- Composables for MessageBubble, MessageInput, ImagePreviewArea, FullScreenImageDialog ---
 @Composable
-fun MessageBubble( message: ChatMessage, isCurrentUserMessage: Boolean, isPlaying: Boolean, currentPositionMillis: Long, totalDurationMillis: Long, formatTime: (Long) -> String, onImageClick: (imageUrl: String) -> Unit, onPlayAudioClick: (audioUrl: String) -> Unit ) {
+fun MessageBubble(
+    message: ChatMessage,
+    isCurrentUserMessage: Boolean,
+    isPlaying: Boolean,
+    currentPositionMillis: Long,
+    totalDurationMillis: Long,
+    formatTime: (Long) -> String,
+    onImageClick: (imageUrl: String) -> Unit,
+    onPlayAudioClick: (audioUrl: String) -> Unit
+) {
     val context = LocalContext.current
 
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
         horizontalArrangement = if (isCurrentUserMessage) Arrangement.End else Arrangement.Start
     ) {
         Surface(
             shape = MaterialTheme.shapes.medium,
             color = if (isCurrentUserMessage) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
-            modifier = Modifier.padding(start = if (isCurrentUserMessage) 64.dp else 0.dp, end = if (isCurrentUserMessage) 0.dp else 64.dp),
+            modifier = Modifier.padding(
+                start = if (isCurrentUserMessage) 64.dp else 0.dp,
+                end = if (isCurrentUserMessage) 0.dp else 64.dp
+            ),
             tonalElevation = 1.dp
         ) {
-            val contentColor = if (isCurrentUserMessage) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+            val contentColor =
+                if (isCurrentUserMessage) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
 
             when (message.messageType) {
                 MessageType.TEXT -> {
-                    Text( text = message.text ?: "", modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = contentColor )
+                    Text(
+                        text = message.text ?: "",
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        color = contentColor
+                    )
                 }
+
                 MessageType.IMAGE -> {
-                    if (message.imageUrl != null) { AsyncImage( model = ImageRequest.Builder(context).data(message.imageUrl).crossfade(true).build(), contentDescription = "Sent image", modifier = Modifier.sizeIn(maxWidth = 200.dp, maxHeight = 250.dp).padding(4.dp).clickable { onImageClick(message.imageUrl) }, contentScale = ContentScale.Fit ) } else { Text("[Image unavailable]", modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = contentColor) }
+                    if (message.imageUrl != null) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context).data(message.imageUrl)
+                                .crossfade(true).build(),
+                            contentDescription = "Sent image",
+                            modifier = Modifier
+                                .sizeIn(maxWidth = 200.dp, maxHeight = 250.dp)
+                                .padding(4.dp)
+                                .clickable { onImageClick(message.imageUrl) },
+                            contentScale = ContentScale.Fit
+                        )
+                    } else {
+                        Text(
+                            "[Image unavailable]",
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            color = contentColor
+                        )
+                    }
                 }
+
                 MessageType.LOCATION -> {
                     Column( // Use Column to stack map image and optional name
                         modifier = Modifier
@@ -331,15 +743,33 @@ fun MessageBubble( message: ChatMessage, isCurrentUserMessage: Boolean, isPlayin
                                 message.location?.let { geoPoint ->
                                     val lat = geoPoint.latitude
                                     val lon = geoPoint.longitude
-                                    val gmmIntentUri = Uri.parse("geo:$lat,$lon?q=$lat,$lon(${Uri.encode(message.locationName ?: "Shared Location")})") // Encode location name
+                                    val gmmIntentUri =
+                                        Uri.parse("geo:$lat,$lon?q=$lat,$lon(${Uri.encode(message.locationName ?: "Shared Location")})") // Encode location name
                                     val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
                                     mapIntent.setPackage("com.google.android.apps.maps")
-                                    try { context.startActivity(mapIntent) }
-                                    catch (e: Exception) {
-                                        Log.e("MapLink", "Failed to open Google Maps, trying generic.", e)
-                                        val genericMapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
-                                        try { context.startActivity(genericMapIntent) }
-                                        catch (e2: Exception) { Log.e("MapLink", "Failed to open any map app", e2); Toast.makeText(context, "No map app found", Toast.LENGTH_SHORT).show() }
+                                    try {
+                                        context.startActivity(mapIntent)
+                                    } catch (e: Exception) {
+                                        Log.e(
+                                            "MapLink",
+                                            "Failed to open Google Maps, trying generic.",
+                                            e
+                                        )
+                                        val genericMapIntent =
+                                            Intent(Intent.ACTION_VIEW, gmmIntentUri)
+                                        try {
+                                            context.startActivity(genericMapIntent)
+                                        } catch (e2: Exception) {
+                                            Log.e(
+                                                "MapLink",
+                                                "Failed to open any map app",
+                                                e2
+                                            ); Toast.makeText(
+                                                context,
+                                                "No map app found",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
                                     }
                                 }
                             }
@@ -361,13 +791,21 @@ fun MessageBubble( message: ChatMessage, isCurrentUserMessage: Boolean, isPlayin
                             )
                         } else {
                             // Placeholder if map image fails or is null
-                            Box(modifier = Modifier.fillMaxWidth().height(120.dp).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(120.dp)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
                                 Text("Map Error", Modifier.align(Alignment.Center))
                             }
                         }
 
                         Spacer(modifier = Modifier.height(4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp)) { // Padding for text below map
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 4.dp)
+                        ) { // Padding for text below map
                             Icon(
                                 imageVector = Icons.Filled.LocationOn,
                                 contentDescription = null, // Decorative
@@ -385,11 +823,57 @@ fun MessageBubble( message: ChatMessage, isCurrentUserMessage: Boolean, isPlayin
                         }
                     }
                 }
+
                 MessageType.AUDIO -> {
-                    Column( modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp).widthIn(min = 100.dp, max = 250.dp).clickable(enabled = message.audioUrl != null) { message.audioUrl?.let { onPlayAudioClick(it) } } ) { Row( modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically ) { Icon( imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, contentDescription = if (isPlaying) "Pause audio" else "Play audio", tint = contentColor ); Spacer(modifier = Modifier.width(8.dp)); LinearProgressIndicator( progress = { if (totalDurationMillis > 0) currentPositionMillis.toFloat() / totalDurationMillis.toFloat() else 0f }, modifier = Modifier.weight(1f).height(6.dp), strokeCap = StrokeCap.Round, trackColor = if(isPlaying) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f), color = if(isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) ) }; Spacer(modifier = Modifier.height(4.dp)); Text( text = "${formatTime(currentPositionMillis)} / ${formatTime(totalDurationMillis)}", fontSize = 12.sp, color = contentColor.copy(alpha = 0.7f), modifier = Modifier.align(Alignment.End) ) }
+                    Column(
+                        modifier = Modifier
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .widthIn(min = 100.dp, max = 250.dp)
+                            .clickable(enabled = message.audioUrl != null) {
+                                message.audioUrl?.let {
+                                    onPlayAudioClick(it)
+                                }
+                            }) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                                contentDescription = if (isPlaying) "Pause audio" else "Play audio",
+                                tint = contentColor
+                            ); Spacer(modifier = Modifier.width(8.dp)); LinearProgressIndicator(
+                            progress = { if (totalDurationMillis > 0) currentPositionMillis.toFloat() / totalDurationMillis.toFloat() else 0f },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(6.dp),
+                            strokeCap = StrokeCap.Round,
+                            trackColor = if (isPlaying) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.onSurface.copy(
+                                alpha = 0.12f
+                            ),
+                            color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(
+                                alpha = 0.38f
+                            )
+                        )
+                        }; Spacer(modifier = Modifier.height(4.dp)); Text(
+                        text = "${
+                            formatTime(
+                                currentPositionMillis
+                            )
+                        } / ${formatTime(totalDurationMillis)}",
+                        fontSize = 12.sp,
+                        color = contentColor.copy(alpha = 0.7f),
+                        modifier = Modifier.align(Alignment.End)
+                    )
+                    }
                 }
+
                 null -> {
-                    Text("[Unsupported message]", modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = contentColor)
+                    Text(
+                        "[Unsupported message]",
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        color = contentColor
+                    )
                 }
             }
         }
@@ -397,16 +881,165 @@ fun MessageBubble( message: ChatMessage, isCurrentUserMessage: Boolean, isPlayin
 }
 
 @Composable
-fun MessageInput( text: String, onTextChanged: (String) -> Unit, onSendClick: () -> Unit, onAttachImageClick: () -> Unit, isRecording: Boolean, onRecordStart: () -> Unit, onRecordStop: () -> Unit, onSendLocationClick: () -> Unit, isFetchingLocation: Boolean ) {
-    Surface(shadowElevation = 4.dp, tonalElevation = 1.dp) { Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { if (isRecording) { Icon(imageVector = Icons.Filled.Mic, contentDescription = "Recording...", tint = Color.Red, modifier = Modifier.padding(horizontal = 12.dp)); Text(text = "Recording...", modifier = Modifier.weight(1f).padding(horizontal = 8.dp)); IconButton(onClick = onRecordStop) { Icon(Icons.Filled.Stop, contentDescription = "Stop Recording", tint = MaterialTheme.colorScheme.primary) } } else { IconButton(onClick = onAttachImageClick) { Icon(Icons.Filled.AddPhotoAlternate, contentDescription = "Attach Image") }; IconButton( onClick = onSendLocationClick, enabled = !isFetchingLocation ) { if (isFetchingLocation) { CircularProgressIndicator( modifier = Modifier.size(24.dp), strokeWidth = 2.dp ) } else { Icon(Icons.Filled.LocationOn, contentDescription = "Send Location") } }; OutlinedTextField(value = text, onValueChange = onTextChanged, modifier = Modifier.weight(1f), placeholder = { Text("Type a message...") }, shape = MaterialTheme.shapes.medium, colors = TextFieldDefaults.colors(focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent, disabledIndicatorColor = Color.Transparent), maxLines = 5); Spacer(modifier = Modifier.width(4.dp)); if (text.isNotBlank()) { IconButton(onClick = onSendClick, enabled = true) { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send message", tint = MaterialTheme.colorScheme.primary) } } else { IconButton(onClick = onRecordStart) { Icon(Icons.Filled.Mic, contentDescription = "Record Voice Message") } } } } }
+fun MessageInput(
+    text: String,
+    onTextChanged: (String) -> Unit,
+    onSendClick: () -> Unit,
+    onAttachImageClick: () -> Unit,
+    isRecording: Boolean,
+    onRecordStart: () -> Unit,
+    onRecordStop: () -> Unit,
+    onSendLocationClick: () -> Unit,
+    isFetchingLocation: Boolean
+) {
+    Surface(shadowElevation = 4.dp, tonalElevation = 1.dp) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (isRecording) {
+                Icon(
+                    imageVector = Icons.Filled.Mic,
+                    contentDescription = "Recording...",
+                    tint = Color.Red,
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                ); Text(
+                    text = "Recording...",
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 8.dp)
+                ); IconButton(onClick = onRecordStop) {
+                    Icon(
+                        Icons.Filled.Stop,
+                        contentDescription = "Stop Recording",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            } else {
+                IconButton(onClick = onAttachImageClick) {
+                    Icon(
+                        Icons.Filled.AddPhotoAlternate,
+                        contentDescription = "Attach Image"
+                    )
+                }; IconButton(
+                    onClick = onSendLocationClick,
+                    enabled = !isFetchingLocation
+                ) {
+                    if (isFetchingLocation) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(Icons.Filled.LocationOn, contentDescription = "Send Location")
+                    }
+                }; OutlinedTextField(
+                    value = text,
+                    onValueChange = onTextChanged,
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("Type a message...") },
+                    shape = MaterialTheme.shapes.medium,
+                    colors = TextFieldDefaults.colors(
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        disabledIndicatorColor = Color.Transparent
+                    ),
+                    maxLines = 5
+                ); Spacer(modifier = Modifier.width(4.dp)); if (text.isNotBlank()) {
+                    IconButton(
+                        onClick = onSendClick,
+                        enabled = true
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Send message",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                } else {
+                    IconButton(onClick = onRecordStart) {
+                        Icon(
+                            Icons.Filled.Mic,
+                            contentDescription = "Record Voice Message"
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
-fun ImagePreviewArea( uri: Uri, onSendClick: () -> Unit, onCancelClick: () -> Unit) {
-    Surface(shadowElevation = 4.dp, tonalElevation = 1.dp) { Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) { IconButton(onClick = onCancelClick) { Icon(Icons.Filled.Cancel, contentDescription = "Cancel Image Selection") }; Spacer(modifier = Modifier.width(8.dp)); AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(uri).crossfade(true).build(), contentDescription = "Image Preview", modifier = Modifier.size(64.dp).background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small).clip(MaterialTheme.shapes.small), contentScale = ContentScale.Crop); Spacer(modifier = Modifier.weight(1f)); IconButton(onClick = onSendClick) { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send Image", tint = MaterialTheme.colorScheme.primary) } } }
+fun ImagePreviewArea(uri: Uri, onSendClick: () -> Unit, onCancelClick: () -> Unit) {
+    Surface(shadowElevation = 4.dp, tonalElevation = 1.dp) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onCancelClick) {
+                Icon(
+                    Icons.Filled.Cancel,
+                    contentDescription = "Cancel Image Selection"
+                )
+            }; Spacer(modifier = Modifier.width(8.dp)); AsyncImage(
+            model = ImageRequest.Builder(LocalContext.current).data(uri).crossfade(true).build(),
+            contentDescription = "Image Preview",
+            modifier = Modifier
+                .size(64.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small)
+                .clip(MaterialTheme.shapes.small),
+            contentScale = ContentScale.Crop
+        ); Spacer(modifier = Modifier.weight(1f)); IconButton(onClick = onSendClick) {
+            Icon(
+                Icons.AutoMirrored.Filled.Send,
+                contentDescription = "Send Image",
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+        }
+    }
 }
 
 @Composable
-fun FullScreenImageDialog( imageUrl: String, onDismiss: () -> Unit) {
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) { Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.8f)).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss), contentAlignment = Alignment.Center) { AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(imageUrl).crossfade(true).build(), contentDescription = "Full screen image", modifier = Modifier.fillMaxWidth().padding(16.dp), contentScale = ContentScale.Fit); IconButton(onClick = onDismiss, modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) { Icon(Icons.Filled.Close, contentDescription = "Close full screen image", tint = Color.White) } } }
+fun FullScreenImageDialog(imageUrl: String, onDismiss: () -> Unit) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.8f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                ), contentAlignment = Alignment.Center
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current).data(imageUrl).crossfade(true)
+                    .build(),
+                contentDescription = "Full screen image",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                contentScale = ContentScale.Fit
+            ); IconButton(
+            onClick = onDismiss,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(16.dp)
+        ) {
+            Icon(
+                Icons.Filled.Close,
+                contentDescription = "Close full screen image",
+                tint = Color.White
+            )
+        }
+        }
+    }
 }
