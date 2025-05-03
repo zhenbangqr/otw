@@ -27,6 +27,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.zhenbang.otw.database.Department
 import kotlinx.coroutines.launch
 import android.widget.Toast
+import androidx.compose.ui.platform.LocalConfiguration
 
 // Composable responsible for displaying the workspace content (departments)
 @Composable
@@ -48,6 +49,9 @@ fun WorkspaceContent(
     var departmentName by rememberSaveable { mutableStateOf("") }
     var imageUrl by rememberSaveable { mutableStateOf("") }
 
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp
+    val gridColumnCount = if (screenWidthDp >= 600) 6 else 3
+
     // --- Sorting Logic ---
     val sortedDepartments = remember(userDepartments, isSortAscending) {
         Log.d("WorkspaceContent", "Recalculating sorted list. Asc: $isSortAscending")
@@ -67,34 +71,36 @@ fun WorkspaceContent(
     Box(modifier = modifier.fillMaxSize()) { // Use Box to allow FAB positioning
         if (isGridView) {
             LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
+                columns = GridCells.Fixed(gridColumnCount),
                 modifier = Modifier
                     .padding(8.dp)
             ) {
                 items(sortedDepartments) { department ->
                     Card(
                         modifier = Modifier
-                            .padding(8.dp)
+                            .padding(12.dp)
                             .clickable {
                                 onNavigateToDepartmentDetails(department.departmentId, department.departmentName)
                             },
                         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            AsyncImage(
-                                model = department.imageUrl,
-                                contentDescription = department.departmentName,
+                        Column {
+                            Box(
                                 modifier = Modifier
-                                    .size(120.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                            )
-
+                                    .aspectRatio(1f),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                AsyncImage(
+                                    model = department.imageUrl,
+                                    contentDescription = department.departmentName,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(RoundedCornerShape(12.dp))
+                                )
+                            }
                             Text(
-                                text = department.departmentName, fontSize = 16.sp
+                                text = department.departmentName,
+                                fontSize = 16.sp
                             )
                         }
                     }
