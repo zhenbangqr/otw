@@ -23,6 +23,8 @@ import androidx.navigation.navArgument
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.zhenbang.otw.auth.*
+import com.zhenbang.otw.data.AuthRepository
+import com.zhenbang.otw.data.FirebaseAuthRepository
 import com.zhenbang.otw.enterSelfDetails.EnterSelfDetailsScreen
 import com.zhenbang.otw.enterSelfDetails.EnterSelfDetailsViewModel
 import com.zhenbang.otw.emailVerification.VerificationScreen
@@ -42,6 +44,7 @@ import com.zhenbang.otw.tasks.AddEditTaskScreen
 import com.zhenbang.otw.tasks.TaskDetailScreen
 import com.zhenbang.otw.tasks.TaskViewModel
 import com.zhenbang.otw.issues.AddEditIssueScreen
+import com.zhenbang.otw.issues.IssueDiscussionScreen
 import com.zhenbang.otw.issues.IssueViewModel
 import com.zhenbang.otw.profile.language.LanguageScreen
 import com.zhenbang.otw.profile.manageAccount.ManageAccountScreen
@@ -76,6 +79,7 @@ object AppDestinations {
     const val TASK_DETAIL_ROUTE = "task_details/{$TASK_ID_ARG}"
     const val ADD_EDIT_TASK_ROUTE = "add_edit_task/{$DEPARTMENT_ID_ARG}/{$TASK_ID_ARG}"
     const val ADD_EDIT_ISSUE_ROUTE = "add_edit_issue/{$DEPARTMENT_ID_ARG}/{$ISSUE_ID_ARG}"
+    const val ISSUE_DISCUSSION_ROUTE = "issue_discussion/{$ISSUE_ID_ARG}"
 }
 
 private enum class ResolvedAuthState {
@@ -194,7 +198,8 @@ fun AppNavigation() {
             AppDestinations.ADD_EDIT_ISSUE_ROUTE,
             AppDestinations.LANGUAGE_SELECTION_ROUTE,
             AppDestinations.MANAGE_ACCOUNT_ROUTE,
-            AppDestinations.PRIVACY_ROUTE
+            AppDestinations.PRIVACY_ROUTE,
+            AppDestinations.ISSUE_DISCUSSION_ROUTE
         )
 
         val targetRoute: String? = when (resolvedAuthState) {
@@ -446,6 +451,24 @@ fun AppNavigation() {
                 taskViewModel = taskViewModel,
                 taskId = taskId
             )
+        }
+
+        // --- Issue Discussion Screen Destination ---
+        composable(
+            route = AppDestinations.ISSUE_DISCUSSION_ROUTE,
+            arguments = listOf(navArgument(AppDestinations.ISSUE_ID_ARG) { type = NavType.IntType })
+        ) { backStackEntry ->
+            val issueId = backStackEntry.arguments?.getInt(AppDestinations.ISSUE_ID_ARG) ?: 0
+
+            if (issueId > 0) {
+                IssueDiscussionScreen(
+                    navController = navController,
+                )
+            } else {
+                // Handle invalid ID? Navigate back or show error.
+                Text("Error: Invalid Issue ID") // Placeholder
+                LaunchedEffect(Unit) { navController.popBackStack() }
+            }
         }
 
         // Add/Edit Task Screen
