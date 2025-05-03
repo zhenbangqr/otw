@@ -277,8 +277,8 @@ fun DepartmentDetailsScreen(
                         departmentViewModel.selectTab(newTab)
                     },
                     onTaskCompletedChanged = onTaskCompleted,
-                    onNavigateToEditIssue = { issue ->
-                        navController.navigate(Screen.AddEditIssue.createRoute(departmentId, issue.issueId))
+                    onNavigateToIssueDiscussion = { issueId ->
+                        navController.navigate("issue_discussion/$issueId")
                     },
                     onNavigateToTaskDetail = { task ->
                         navController.navigate(Screen.TaskDetail.createRoute(task.taskId))
@@ -551,7 +551,7 @@ fun TabbedContentSection(
     currentSelectedTab: String,
     onTabSelected: (String) -> Unit,
     onTaskCompletedChanged: (Task, Boolean) -> Unit,
-    onNavigateToEditIssue: (Issue) -> Unit,
+    onNavigateToIssueDiscussion: (issueId: Int) -> Unit,
     onNavigateToTaskDetail: (Task) -> Unit,
     currentUserEmail: String?,
     taskViewModel: TaskViewModel,
@@ -611,7 +611,7 @@ fun TabbedContentSection(
             when (currentSelectedTab) {
                 "Issues" -> IssueList(
                     issues = issues,
-                    onNavigateToEdit = onNavigateToEditIssue,
+                    onIssueClick = onNavigateToIssueDiscussion,
                     modifier = Modifier.fillMaxSize()
                 )
                 "Tasks" -> TaskList(
@@ -630,7 +630,7 @@ fun TabbedContentSection(
 @Composable
 fun IssueList(
     issues: List<Issue>,
-    onNavigateToEdit: (Issue) -> Unit,
+    onIssueClick: (issueId: Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val itemHeight = 80.dp
@@ -650,7 +650,7 @@ fun IssueList(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(itemHeight)
-                        .clickable { onNavigateToEdit(issue) }
+                        .clickable { onIssueClick(issue.issueId) }
                         .padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {

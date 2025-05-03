@@ -9,7 +9,8 @@ import java.util.concurrent.TimeUnit
 
 object NewsInstance {
 
-    private const val NEWS_BASE_URL = "https://newsdata.io/api/1/" // News API Base URL
+//    private const val NEWS_BASE_URL = "https://newsdata.io/api/1/" // News API Base URL
+    private const val NEWS_BASE_URL = "https://google.com" // News API Base URL
     private const val CONNECT_TIMEOUT_SECONDS = 30L
     private const val READ_TIMEOUT_SECONDS = 30L
 

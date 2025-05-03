@@ -23,6 +23,12 @@ import java.lang.Exception
 import java.lang.IllegalArgumentException
 import java.lang.IllegalStateException
 import java.util.UUID
+import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.ktx.snapshots
+import kotlinx.coroutines.flow.map
+import com.google.firebase.firestore.ktx.toObjects
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 
 class FirebaseAuthRepository : AuthRepository {
 
@@ -358,6 +364,65 @@ class FirebaseAuthRepository : AuthRepository {
         } catch (e: Exception) {
             Log.e(TAG, "Error saving FCM token for user $userId", e)
             Result.failure(e) // Propagate the error
+        }
+    }
+
+    // Helper to get the comments subcollection reference
+    private fun getCommentsRef(issueId: Int) =
+        db.collection("issue_discussions").document(issueId.toString()).collection("comments")
+
+    // --- Implement Comment Methods ---
+
+    override fun getCommentsFlow(issueId: Int): Flow<List<Comment>> {
+        Log.d(TAG, "Setting up comments flow for issueId: $issueId")
+        // Order by timestamp, ascending (oldest first)
+        return getCommentsRef(issueId)
+            .orderBy("timestamp", Query.Direction.ASCENDING)
+            .snapshots() // Listen for real-time updates
+            .map { snapshot ->
+                snapshot.toObjects<Comment>() // Convert query snapshot to list of Comment objects
+            }
+            .catch { e ->
+                Log.e(TAG, "Error getting comments flow for issue $issueId", e)
+                emit(emptyList()) // Emit empty list on error
+            }
+    }
+
+    override suspend fun addComment(issueId: Int, comment: Comment): Result<Unit> {
+        // Firestore automatically sets the @ServerTimestamp field
+        return try {
+            Log.d(TAG, "Adding comment for issue $issueId by ${comment.authorUid}")
+            getCommentsRef(issueId).add(comment).await() // add() generates ID
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error adding comment for issue $issueId", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun updateComment(issueId: Int, commentId: String, newText: String): Result<Unit> {
+        return try {
+            Log.d(TAG, "Updating comment $commentId in issue $issueId")
+            getCommentsRef(issueId).document(commentId)
+                .update("text", newText) // Update only the text field
+                .await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating comment $commentId", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun deleteComment(issueId: Int, commentId: String): Result<Unit> {
+        return try {
+            Log.d(TAG, "Deleting comment $commentId from issue $issueId")
+            getCommentsRef(issueId).document(commentId)
+                .delete()
+                .await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error deleting comment $commentId", e)
+            Result.failure(e)
         }
     }
 }

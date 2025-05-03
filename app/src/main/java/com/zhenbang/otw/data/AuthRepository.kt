@@ -2,6 +2,7 @@ package com.zhenbang.otw.data
 
 import com.google.firebase.auth.FirebaseUser
 import android.net.Uri
+import kotlinx.coroutines.flow.Flow
 
 // Interface defining all authentication operations needed by ViewModels
 interface AuthRepository {
@@ -22,4 +23,8 @@ interface AuthRepository {
     suspend fun blockUser(currentUserId: String, userIdToBlock: String): Result<Unit>
     suspend fun unblockUser(currentUserId: String, userIdToUnblock: String): Result<Unit>
     suspend fun saveFcmToken(userId: String, token: String): Result<Unit>
+    fun getCommentsFlow(issueId: Int): Flow<List<Comment>>
+    suspend fun addComment(issueId: Int, comment: Comment): Result<Unit>
+    suspend fun updateComment(issueId: Int, commentId: String, newText: String): Result<Unit>
+    suspend fun deleteComment(issueId: Int, commentId: String): Result<Unit>
 }
