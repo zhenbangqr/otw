@@ -68,16 +68,22 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.zhenbang.otw.R
 import com.zhenbang.otw.profile.ProfileViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import com.zhenbang.otw.LiveLocationScreen
+import com.zhenbang.otw.ui.viewmodel.LiveLocationViewModel
 
 
 @OptIn(ExperimentalMaterial3Api::class) // For TopAppBar, Scaffold, FilterChip
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
+    navController: NavController, // <-- Add NavController parameter
     newsViewModel: NewsViewModel = viewModel(),
     weatherViewModel: WeatherViewModel = viewModel(),
     departmentViewModel: DepartmentViewModel = viewModel(factory = DepartmentViewModel.Factory(LocalContext.current)),
     profileViewModel: ProfileViewModel = viewModel(),
+    liveLocationViewModel: LiveLocationViewModel = viewModel(), // <-- Obtain LiveLocationViewModel
     onNavigateToProfile: () -> Unit = {},
     onNavigateToNotifications: () -> Unit = {},
     onNavigateBottomBar: (String) -> Unit = {},
@@ -207,8 +213,10 @@ fun HomeScreen(
                     )
                 }
                 "Location" -> {
-                    // Placeholder for Location Content
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center){ Text("Location Content Area")}
+                    LiveLocationScreen(
+                        navController = navController, // Pass NavController
+                        liveLocationViewModel = liveLocationViewModel // Pass ViewModel
+                    )
                 }
                 "Chat" -> {
                     // Placeholder for Chat Content
@@ -225,6 +233,6 @@ fun HomeScreen(
 @Composable
 fun HomeScreenPreview() {
     OnTheWayTheme { // Ensure your theme is applied
-        HomeScreen(onNavigateToDepartmentDetails = { _, _ -> })
+        Text("HomeScreen Preview Requires Setup")
     }
 }

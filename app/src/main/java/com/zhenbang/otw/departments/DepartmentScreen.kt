@@ -236,6 +236,7 @@ fun DepartmentDetailsScreen(
             modifier = Modifier
                 .padding(paddingValues)
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
         ) {
             Box(modifier = Modifier.height(240.dp)) {
                 AsyncImage(
@@ -701,10 +702,7 @@ fun TaskList(
             style = typography.bodyMedium
         )
     } else {
-        Column(
-            modifier = modifier
-                .verticalScroll(rememberScrollState())
-        ) {
+        Column() {
             tasks.forEach { task ->
                 val canEditTaskFlow = remember { taskViewModel.canEditTask(task.taskId, currentUserEmail) }
                 val canEdit by canEditTaskFlow.collectAsState(initial = false)

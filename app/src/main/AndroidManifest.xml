@@ -1,17 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     package="com.zhenbang.otw">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="35" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <queries>
         <intent>
             <action android:name="android.support.customtabs.action.CustomTabsService" />
         </intent>
     </queries>
-
-    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"
@@ -45,7 +50,7 @@
             android:label="@string/app_name"
             android:theme="@style/Theme.OnTheWay"
             android:windowSoftInputMode="adjustResize"
-            android:launchMode="singleTask">  <intent-filter>
+            android:launchMode="singleTask"><intent-filter>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
