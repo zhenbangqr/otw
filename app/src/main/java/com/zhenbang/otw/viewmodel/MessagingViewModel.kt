@@ -90,12 +90,30 @@ class MessagingViewModel(
     private val MAPS_API_KEY = "AIzaSyCppCCTlCgmdXPLpkrhCYHy2vXEdYsgY08" // <-- REPLACE THIS
 
     init {
-        if (MAPS_API_KEY.startsWith("YOUR_")) { // Basic check if placeholder is still there
-            Log.w("ViewModelSetup", "Static Maps API Key is not set!")
-            // Consider setting an error state or disabling location feature
+        Log.d("MessagingViewModel", "Initializing with currentUserUid: [$currentUserUid], otherUserUid: [$otherUserUid]")
+        if (currentUserUid.isBlank() || otherUserUid.isBlank()) {
+            Log.e("MessagingViewModel", "CRITICAL: One or both UIDs are blank!")
+            _error.value = "Cannot initialize chat: Invalid user IDs."
+        } else {
+            // Launch a single coroutine to handle sequential initialization steps
+            viewModelScope.launch {
+                // Step 1: Ensure the chat document exists. Modify the function to return success/failure.
+                val chatSetupSuccess = ensureChatDocumentExists() // await completion
+
+                // Step 2: Only proceed if the chat document exists or was created successfully
+                if (chatSetupSuccess) {
+                    Log.d("MessagingViewModel", "Chat document confirmed/created. Proceeding with listeners and partner name fetch.")
+                    // Now it's safe to fetch partner name and listen for messages
+                    // because the parent document (and its participant list for rules) should exist.
+                    fetchPartnerName()    // Can run concurrently now
+                    listenForMessages()   // Can run concurrently now
+                } else {
+                    // If ensureChatDocumentExists returned false, an error is already set.
+                    Log.e("MessagingViewModel", "Initialization failed: Could not ensure chat document exists. Listeners not attached.")
+                    // The _error StateFlow should already be populated by the ensureChatDocumentExists function
+                }
+            }
         }
-        listenForMessages()
-        fetchPartnerName()
     }
 
     override fun onCleared() {
@@ -131,26 +149,24 @@ class MessagingViewModel(
     // Updates the main chat document with last message info
     private suspend fun updateChatMetadata(preview: String, timestamp: Any) {
         val chatUpdateData = mapOf(
-            "participants" to listOf(currentUserUid, otherUserUid), // Ensure this is always set/updated
+            "participants" to listOf(currentUserUid, otherUserUid), // Keep this to ensure it's always correct
             "lastMessagePreview" to preview,
             "lastMessageTimestamp" to timestamp // Use FieldValue.serverTimestamp() or actual Timestamp
         )
         try {
-            // Use set with merge option to create the document if it doesn't exist,
-            // or update existing fields without overwriting others.
+            // SetOptions.merge is still the right choice here for updates.
             chatDocRef.set(chatUpdateData, SetOptions.merge()).await()
             Log.d("MessagingViewModel", "Chat metadata updated for $chatDocId")
         } catch (e: Exception) {
+            // Keep existing error handling
             if (e is com.google.firebase.firestore.FirebaseFirestoreException && e.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
                 Log.e("MessagingViewModel", "PERMISSION_DENIED updating chat metadata for $chatDocId. Check Firestore Rules!", e)
-                _error.value = "Error updating chat (Permissions). Check Rules." // Show specific error if needed
+                _error.value = "Error updating chat (Permissions). Check Rules."
             } else {
                 Log.e("MessagingViewModel", "Failed to update chat metadata for $chatDocId", e)
-                // Optionally set an error state, but maybe non-critical
             }
         }
     }
-
 
     // --- Recording Logic ---
     fun startRecording() {
@@ -546,6 +562,45 @@ class MessagingViewModel(
                 _error.value = "Failed to send message: ${e.localizedMessage}"
             }
             // No finally block needed here unless managing a loading state for text sending
+        }
+    }
+
+    private suspend fun ensureChatDocumentExists(): Boolean { // <-- Return Boolean
+        try {
+            val docSnapshot = chatDocRef.get().await()
+            if (!docSnapshot.exists()) {
+                Log.d("MessagingViewModel", "Chat document $chatDocId does not exist. Creating...")
+                val initialChatData = mapOf(
+                    "participants" to listOf(currentUserUid, otherUserUid),
+                    "lastMessagePreview" to null,
+                    "lastMessageTimestamp" to null // Consider FieldValue.serverTimestamp() here if needed at creation
+                )
+                // Use set() to create the document
+                Log.d("MessagingViewModel", "Attempting to create chat doc. Data: $initialChatData")
+                chatDocRef.set(initialChatData).await()
+            } else {
+                Log.d("MessagingViewModel", "Chat document $chatDocId already exists.")
+                // OPTIONAL but recommended: Verify/update participants if document exists but somehow misses them
+                // This handles edge cases where creation might have been interrupted or rules changed.
+                val currentParticipants = docSnapshot.get("participants") as? List<*> // Use List<*> for safer casting
+                if (currentParticipants == null || currentUserUid !in currentParticipants || otherUserUid !in currentParticipants) {
+                    Log.w("MessagingViewModel", "Chat document $chatDocId exists but participants list is missing or incomplete. Merging participants.")
+                    // Use merge to add/update participants without overwriting other fields
+                    chatDocRef.set(mapOf("participants" to listOf(currentUserUid, otherUserUid)), SetOptions.merge()).await()
+                    Log.d("MessagingViewModel", "Participants merged into existing document $chatDocId.")
+                }
+            }
+            return true // Indicate success
+        } catch (e: Exception) {
+            Log.e("MessagingViewModel", "Error ensuring/creating chat document $chatDocId", e)
+            // Provide a more specific error based on Firestore exception if possible
+            val errorMsg = if (e is com.google.firebase.firestore.FirebaseFirestoreException && e.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                "Failed to initialize chat: Check Firestore Rules for creating/reading chat documents."
+            } else {
+                "Failed to initialize chat. Check connection/permissions. (${e.localizedMessage})"
+            }
+            _error.value = errorMsg
+            return false // Indicate failure
         }
     }
 
