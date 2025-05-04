@@ -47,6 +47,7 @@ import com.zhenbang.otw.issues.AddEditIssueScreen
 import com.zhenbang.otw.issues.IssueDiscussionScreen
 import com.zhenbang.otw.issues.IssueViewModel
 import com.zhenbang.otw.profile.language.LanguageScreen
+import com.zhenbang.otw.profile.chatTheme.ChatThemeScreen
 import com.zhenbang.otw.profile.manageAccount.ManageAccountScreen
 import com.zhenbang.otw.profile.privacy.PrivacyScreen
 import com.zhenbang.otw.ui.screen.HomeScreen
@@ -69,6 +70,7 @@ object AppDestinations {
     const val LOADING_ROUTE = "loading"
     const val PROFILE_ROUTE = "profile"
     const val LANGUAGE_SELECTION_ROUTE = "language_selection"
+    const val CHAT_THEME_SELECTION_ROUTE = "chat_theme_selection"
     const val MANAGE_ACCOUNT_ROUTE = "manage_account"
     const val PRIVACY_ROUTE = "privacy"
 
@@ -220,6 +222,7 @@ fun AppNavigation() {
             AppDestinations.ADD_EDIT_TASK_ROUTE,
             AppDestinations.ADD_EDIT_ISSUE_ROUTE,
             AppDestinations.LANGUAGE_SELECTION_ROUTE,
+            AppDestinations.CHAT_THEME_SELECTION_ROUTE,
             AppDestinations.MANAGE_ACCOUNT_ROUTE,
             AppDestinations.PRIVACY_ROUTE,
             AppDestinations.ISSUE_DISCUSSION_ROUTE,
@@ -389,6 +392,9 @@ fun AppNavigation() {
                 profileViewModel = profileViewModel,
                 onNavigateBack = { navController.popBackStack() },
                 onLogout = performLogout,
+                onNavigateToChatTheme = {
+                    navController.navigate(AppDestinations.CHAT_THEME_SELECTION_ROUTE)
+                },
                 onNavigateToLanguageSettings = {
                     navController.navigate(AppDestinations.LANGUAGE_SELECTION_ROUTE)
                 },
@@ -403,6 +409,11 @@ fun AppNavigation() {
         // --- Profile Screen -> Language Screen ---
         composable(route = AppDestinations.LANGUAGE_SELECTION_ROUTE) {
             LanguageScreen(navController = navController)
+        }
+
+        // --- Profile Screen -> Language Screen ---
+        composable(route = AppDestinations.CHAT_THEME_SELECTION_ROUTE) {
+            ChatThemeScreen(navController = navController)
         }
 
         // --- Profile Screen -> Manage Account Screen ---

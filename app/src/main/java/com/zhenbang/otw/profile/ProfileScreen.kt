@@ -54,6 +54,7 @@ fun ProfileScreen(
     profileViewModel: ProfileViewModel,
     onLogout: () -> Unit,
     onNavigateBack: () -> Unit,
+    onNavigateToChatTheme: () -> Unit,
     onNavigateToLanguageSettings: () -> Unit,
     onNavigateToManageAccount: () -> Unit,
     onNavigateToPrivacy: () -> Unit
@@ -129,7 +130,7 @@ fun ProfileScreen(
                 item { SettingsListItem(title = "Account", primaryText = "Manage Account") { onNavigateToManageAccount() } }
                 item { SettingsListItem(title = "Privacy", primaryText = "Block users") { onNavigateToPrivacy() } }
 //                item { SettingsListItem(title = "Avatar", primaryText = "Change profile picture") { imagePickerLauncher.launch("image/*") } }
-                item { SettingsListItem(title = "Chats", primaryText = "Themes") { Toast.makeText(context, "Themes clicked", Toast.LENGTH_SHORT).show() } }
+                item { SettingsListItem(title = "Chats", primaryText = "Themes") { onNavigateToChatTheme() } }
                 item { SettingsListItem(title = "Notifications", primaryText = "Message, groups and call tones") { Toast.makeText(context, "Notifications clicked", Toast.LENGTH_SHORT).show() } }
                 item { SettingsListItem(title = "App language", primaryText = "English") { onNavigateToLanguageSettings() } }
                 item { SettingsListItem(title = "Help", primaryText = "SOS!") { Toast.makeText(context, "Help clicked", Toast.LENGTH_SHORT).show() } }
