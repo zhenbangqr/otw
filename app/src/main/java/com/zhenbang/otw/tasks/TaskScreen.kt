@@ -1,5 +1,6 @@
 package com.zhenbang.otw.tasks
 
+import android.widget.Toast
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -66,6 +67,7 @@ import com.zhenbang.otw.departments.Screen
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun TaskDetailScreen(navController: NavController, taskViewModel: TaskViewModel, taskId: Int) {
@@ -184,6 +186,7 @@ fun AddEditTaskScreen(
     taskViewModel: TaskViewModel,
     taskId: Int
 ) {
+    val context = LocalContext.current
     var title by rememberSaveable { mutableStateOf("") }
     var description by rememberSaveable { mutableStateOf("") }
     val taskToEdit by taskViewModel.getTaskById(taskId).collectAsState(initial = null)
@@ -200,6 +203,8 @@ fun AddEditTaskScreen(
     var subTaskTitle by rememberSaveable { mutableStateOf("") }
     var subTaskDesc by rememberSaveable { mutableStateOf("") }
     var subTasks = remember { mutableStateListOf<SubTask>() }
+    var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
+
 
     var assignSearchQuery by rememberSaveable { mutableStateOf("") }
     val filteredDeptUsers = remember(deptUsers, assignSearchQuery) {
@@ -281,6 +286,8 @@ fun AddEditTaskScreen(
                             taskViewModel.insertTask(task, selectedUsersToAssign, subTasks)
                         }
                         navController.popBackStack()
+                    } else {
+                        Toast.makeText(context, "Please enter both title and description", Toast.LENGTH_SHORT).show()
                     }
                 }) {
                     Icon(Icons.Filled.Check, contentDescription = "Save Task")
@@ -323,7 +330,7 @@ fun AddEditTaskScreen(
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
-                    placeholder = { Text("Enter your task here.", fontSize = 18.sp) },
+                    placeholder = { Text("Enter task description.", fontSize = 18.sp) },
                     modifier = Modifier
                         .fillMaxWidth(),
                     textStyle = TextStyle(
@@ -476,6 +483,7 @@ fun AddEditTaskScreen(
                         OutlinedTextField(
                             value = subTaskTitle,
                             onValueChange = { subTaskTitle = it },
+                            label = { Text("Sub-Task Title") },
                             placeholder = { Text("Sub-Task Title") },
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -483,6 +491,7 @@ fun AddEditTaskScreen(
                         OutlinedTextField(
                             value = subTaskDesc,
                             onValueChange = { subTaskDesc = it },
+                            label = { Text("Sub-Task Description") },
                             placeholder = { Text("Sub-Task Description") },
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -513,6 +522,8 @@ fun AddEditTaskScreen(
                                 editingSubTaskIndex = -1
                                 subTaskTitle = ""
                                 subTaskDesc = ""
+                            } else {
+                                Toast.makeText(context, "Please enter both title and description for the sub-task", Toast.LENGTH_SHORT).show()
                             }
                         }
                     ) {

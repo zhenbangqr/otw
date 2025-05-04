@@ -26,7 +26,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -702,7 +701,7 @@ fun TaskList(
             style = typography.bodyMedium
         )
     } else {
-        Column() {
+        Column(modifier = modifier) {
             tasks.forEach { task ->
                 val canEditTaskFlow = remember { taskViewModel.canEditTask(task.taskId, currentUserEmail) }
                 val canEdit by canEditTaskFlow.collectAsState(initial = false)
