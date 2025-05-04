@@ -28,7 +28,18 @@ data class ChatMessage(
     val messageType: MessageType? = null, // Keep Enum for internal use
 
     @ServerTimestamp // Ensure this is here
-    val timestamp: Timestamp? = null // Keep Firebase Timestamp for internal use
+    val timestamp: Timestamp? = null,
+    // Edit Status
+    val isEdited: Boolean = false, // Flag to indicate if the message was edited
+
+    // Delete Status (Soft Delete)
+    val isDeleted: Boolean = false, // Flag to indicate if the message is "deleted" (will show placeholder)
+
+    // Reply Info
+    val repliedToMessageId: String? = null, // ID of the message being replied to
+    val repliedToSenderName: String? = null, // Display name of the original sender
+    val repliedToPreview: String? = null,   // Short text or type preview (e.g., "Photo", "Audio", "Hello...")
+    val repliedToType: MessageType? = null // Type of the message being replied to
 )
 
 // --- NEW: Serializable version for JSON export ---
