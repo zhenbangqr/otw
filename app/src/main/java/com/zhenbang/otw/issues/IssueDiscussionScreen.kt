@@ -40,6 +40,7 @@ import com.zhenbang.otw.database.Issue
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.zhenbang.otw.departments.Screen as DepartmentScreen
 // --- End Imports ---
 
 fun formatTimestampMillis(timestamp: Long?, pattern: String = "dd MMM yy HH:mm"): String {
@@ -52,21 +53,30 @@ fun IssueDiscussionScreen(
     navController: NavController,
     // issueId is now handled by ViewModel using SavedStateHandle
     // Inject ViewModel directly (assumes Hilt or default factory with SavedStateHandle)
-    viewModel: IssueDiscussionViewModel = viewModel()
+    viewModel: IssueDiscussionViewModel = viewModel(),
+//    issueViewModelForDelete: IssueViewModel = viewModel()
 ) {
+
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val currentUserId = viewModel.currentUserId // Get current user ID from VM
+    val currentUserEmail = viewModel.currentUserEmail
     val context = LocalContext.current
+    val issue = uiState.issue
+
+    val issueViewModel: IssueViewModel = viewModel(factory = IssueViewModel.Factory(context)) // For issue operations
 
     // State for edit comment dialog
     var showEditCommentDialog by rememberSaveable { mutableStateOf(false) }
     var commentToEdit by remember { mutableStateOf<Comment?>(null) }
-
     // State for delete confirmation
     var showDeleteCommentDialog by rememberSaveable { mutableStateOf(false) }
     var commentToDelete by remember { mutableStateOf<Comment?>(null) }
 
+    var showIssueOptionsMenu by rememberSaveable { mutableStateOf(false) }
+    var showDeleteIssueDialog by rememberSaveable { mutableStateOf(false) }
 
+    // State for the issue creator's profile
+    val creatorProfile = uiState.creatorProfile
     // Show general errors
     LaunchedEffect(uiState.error) {
         uiState.error?.let {
@@ -75,19 +85,69 @@ fun IssueDiscussionScreen(
         }
     }
 
+    val isCurrentUserTheCreator = remember(currentUserEmail, issue?.creatorEmail) {
+        // If using email: issue?.creatorEmail != null && issue.creatorEmail == currentUserEmail
+        issue?.creatorEmail != null && issue.creatorEmail == currentUserEmail
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(uiState.issue?.issueTitle ?: "Issue", maxLines = 1) },
                 navigationIcon = { IconButton(onClick = { navController.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-                actions = { IconButton(onClick = { /* TODO */ }) { Icon(Icons.Default.MoreVert, "More options") } }
+                actions = {
+                    // --- Conditionally show the MoreVert button ---
+                    if (isCurrentUserTheCreator) {
+                        Box { // Box needed to anchor the DropdownMenu
+                            IconButton(onClick = { showIssueOptionsMenu = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "Issue options")
+                            }
+                            // --- Issue Options Dropdown Menu ---
+                            DropdownMenu(
+                                expanded = showIssueOptionsMenu,
+                                onDismissRequest = { showIssueOptionsMenu = false }
+                            ) {
+                                // Edit Issue Item
+                                DropdownMenuItem(
+                                    text = { Text("Edit Issue") },
+                                    onClick = {
+                                        showIssueOptionsMenu = false
+                                        // Navigate to AddEditIssueScreen
+                                        if (issue != null) {
+                                            // Use the correct route definition from your Screen/AppDestinations object
+                                            val route = DepartmentScreen.AddEditIssue.createRoute(
+                                                departmentId = issue.departmentId,
+                                                issueId = issue.issueId
+                                            )
+                                            navController.navigate(route)
+                                        } else {
+                                            Toast.makeText(context, "Cannot edit, issue data missing.", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                )
+                                // Delete Issue Item
+                                DropdownMenuItem(
+                                    text = { Text("Delete Issue") },
+                                    onClick = {
+                                        showIssueOptionsMenu = false
+                                        showDeleteIssueDialog = true // Show confirmation dialog
+                                    }
+                                )
+                            }
+                            // --- End DropdownMenu ---
+                        } // End Box
+                    }
+                }
             )
         },
         bottomBar = {
             // Functional Comment Input Bar
             Surface(tonalElevation = 3.dp) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp).fillMaxWidth(),
+                    modifier = Modifier
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .fillMaxWidth()
+                        .navigationBarsPadding(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedTextField(
@@ -119,7 +179,7 @@ fun IssueDiscussionScreen(
                 // Uses uiState.issue and uiState.creatorProfile
                 IssueDetailsHeader(
                     issue = uiState.issue,
-                    creatorProfile = uiState.creatorProfile,
+                    creatorProfile = creatorProfile,
                     isLoadingProfile = uiState.isLoadingCreatorProfile
                 )
                 Spacer(modifier = Modifier.height(16.dp))
@@ -141,8 +201,7 @@ fun IssueDiscussionScreen(
                 val isOwnComment = comment.authorUid == currentUserId
                 CommentItem(
                     comment = comment,
-                    // TODO: Pass actual profile if/when fetched, for now pass null
-                    authorProfile = null, // uiState.commenterProfiles[comment.authorUid],
+                    authorProfile = uiState.commenterProfiles[comment.authorUid],
                     isOwnComment = isOwnComment,
                     onEditClick = { commentToEditFromItem ->
                         commentToEdit = commentToEditFromItem
@@ -197,6 +256,33 @@ fun IssueDiscussionScreen(
             )
         }
 
+        if (showDeleteIssueDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteIssueDialog = false },
+                title = { Text("Delete Issue?") },
+                text = { Text("Are you sure you want to permanently delete this issue and all its comments?") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            if (issue != null) {
+                                // Use the correct ViewModel instance that has deleteIssue
+                                issueViewModel.deleteIssue(issue)
+                                showDeleteIssueDialog = false
+                                navController.popBackStack() // Go back after deleting
+                            } else {
+                                Toast.makeText(context, "Cannot delete, issue data missing.", Toast.LENGTH_SHORT).show()
+                                showDeleteIssueDialog = false
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) { Text("Delete Issue") }
+                },
+                dismissButton = {
+                    Button(onClick = { showDeleteIssueDialog = false }) { Text("Cancel") }
+                }
+            )
+        }
+
     } // End Scaffold
 } // End IssueDiscussionScreen
 
@@ -208,11 +294,32 @@ fun IssueDetailsHeader(
     creatorProfile: UserProfile?,
     isLoadingProfile: Boolean
 ) {
-    // ... (Implementation similar to previous response: Row with AsyncImage, Column with Name/Time, Text for Description)
-    Spacer(modifier = Modifier.height(16.dp))
-    Row(verticalAlignment = Alignment.CenterVertically) { /* ... Creator Image/Name/Time ... */ }
+    AsyncImage(
+        model = ImageRequest.Builder(LocalContext.current)
+            .data(creatorProfile?.profileImageUrl) // Uses creatorProfile
+            // ... placeholder, error, modifiers ...
+            .build(),
+        contentDescription = "Creator Avatar",
+        modifier = Modifier.size(48.dp).clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+    )
+    Spacer(modifier = Modifier.width(12.dp))
+    Column {
+        // Creator Name
+        Text(
+            text = if (isLoadingProfile) "Loading..." else creatorProfile?.displayName ?: "Unknown User",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+        // Issue Post Time
+        Text(
+            text = "Posted ${formatTimestampMillis(issue?.creationTimestamp)}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
     Spacer(modifier = Modifier.height(12.dp))
-    Text(text = issue?.issueDescription ?: "...", style = MaterialTheme.typography.bodyLarge)
+    Text(text = issue?.issueDescription ?: "Loading description...", style = MaterialTheme.typography.bodyLarge)
     Spacer(modifier = Modifier.height(24.dp))
     HorizontalDivider()
 }
@@ -248,7 +355,8 @@ fun CommentItem(
                     .data(authorProfile?.profileImageUrl) // Use fetched profile later
                     .placeholder(R.drawable.ic_placeholder_profile)
                     .error(R.drawable.ic_placeholder_profile)
-                    .crossfade(true).build(),
+                    .crossfade(true)
+                    .build(),
                 contentDescription = "Commenter Avatar",
                 modifier = Modifier.size(36.dp).clip(CircleShape)
             )

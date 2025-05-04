@@ -463,6 +463,7 @@ fun AppNavigation() {
             if (issueId > 0) {
                 IssueDiscussionScreen(
                     navController = navController,
+
                 )
             } else {
                 // Handle invalid ID? Navigate back or show error.

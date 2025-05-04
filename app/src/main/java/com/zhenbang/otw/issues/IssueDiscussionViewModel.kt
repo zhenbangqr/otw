@@ -94,6 +94,62 @@ class IssueDiscussionViewModel(
         }
     }
 
+    private fun fetchCommenterProfilesIfNeeded(comments: List<Comment>) {
+        viewModelScope.launch {
+            if (comments.isEmpty()) return@launch // No need to fetch if no comments
+
+            val currentProfiles = _uiState.value.commenterProfiles
+            val neededUids = comments
+                .mapNotNull { it.authorUid.takeIf { uid -> uid.isNotBlank() } }
+                .distinct()
+                .filter { uid -> !currentProfiles.containsKey(uid) }
+
+            if (neededUids.isEmpty()) {
+                // Log.d(TAG, "All commenter profiles already available.") // Optional log
+                return@launch
+            }
+
+            Log.d(TAG, "Need to fetch profiles for UIDs: $neededUids")
+            val newlyFetchedProfiles = mutableMapOf<String, UserProfile>()
+            var fetchErrorOccurred = false // Track if any error happens
+
+            neededUids.forEach { uid ->
+                Log.d(TAG, "Fetching profile for UID: $uid")
+                // Use getUserProfile (by UID) from AuthRepository
+                val result = authRepository.getUserProfile(uid) // Assumes this fetches by UID
+                if (result.isSuccess) {
+                    val profile = result.getOrNull()
+                    if (profile != null) {
+                        Log.d(TAG, "Successfully fetched profile for UID: $uid. Name: ${profile.displayName}, ImageUrl: ${profile.profileImageUrl}")
+                        newlyFetchedProfiles[uid] = profile
+                    } else {
+                        // Found document, but couldn't convert or it was null - less likely with getOrNull
+                        Log.w(TAG, "Fetched profile for UID: $uid was null or failed conversion.")
+                        // Optionally store a marker that fetching failed for this user?
+                        fetchErrorOccurred = true
+                    }
+                } else {
+                    Log.e(TAG, "Failed to fetch profile for commenter UID: $uid", result.exceptionOrNull())
+                    fetchErrorOccurred = true
+                    // Store null or skip? Skipping for now.
+                }
+            }
+
+            Log.d(TAG, "Finished fetching batch. Found ${newlyFetchedProfiles.size} new profiles.")
+
+            // Update the state only if new profiles were found or an error occurred
+            if (newlyFetchedProfiles.isNotEmpty() || fetchErrorOccurred) {
+                _uiState.update { currentState ->
+                    Log.d(TAG, "Updating commenterProfiles state map.")
+                    currentState.copy(
+                        commenterProfiles = currentState.commenterProfiles + newlyFetchedProfiles,
+                        error = if (fetchErrorOccurred && currentState.error == null) "Failed to load some commenter details" else currentState.error
+                    )
+                }
+            }
+        }
+    }
+
     private fun listenForComments(id: Int) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingComments = true) }
@@ -101,8 +157,7 @@ class IssueDiscussionViewModel(
                 .catch { e -> _uiState.update { it.copy(error = "Failed to load comments: ${e.message}", isLoadingComments = false) } }
                 .collectLatest { comments ->
                     _uiState.update { it.copy(comments = comments, isLoadingComments = false) }
-                    // TODO: Fetch commenter profiles based on authorUids in comments (optional enhancement)
-                    // fetchCommenterProfilesIfNeeded(comments)
+                    fetchCommenterProfilesIfNeeded(comments)
                 }
         }
     }
@@ -177,6 +232,8 @@ class IssueDiscussionViewModel(
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
+
+
 
     // Optional: Factory if needed for SavedStateHandle injection
     // class Factory(private val application: Application, private val savedStateHandle: SavedStateHandle) : ViewModelProvider.Factory { ... }
