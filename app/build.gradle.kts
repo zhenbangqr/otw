@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
+    id("org.jetbrains.kotlin.plugin.serialization") // Apply plugin
     id("com.google.devtools.ksp") version "2.0.21-1.0.27"
 }
 
@@ -100,6 +101,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.navigation.runtime.android)
     implementation(libs.androidx.benchmark.common)
     implementation(libs.volley)
     implementation(libs.androidx.navigation.compose)

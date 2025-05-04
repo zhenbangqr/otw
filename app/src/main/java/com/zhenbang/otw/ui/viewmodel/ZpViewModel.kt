@@ -35,15 +35,15 @@ class ZpViewModel : ViewModel() { // Your class must inherit from ViewModel
             try {
                 // Construct the request payload using the correct class name
                 val request = ZpRequest(
-                    model = "glm-4-flash", // Replace with your actual model code/constant
+                    model = "glm-4-plus", // Replace with your actual model code/constant
                     messages = listOf(
-                        RequestMessage(role = "user", content = promptContent)
+                        RequestMessage(role = "user", content = "Summarize this chat in a very brief way, in sender's perspective, emphasize on important information for me , each task differentiate them in point form: $promptContent")
                     )
                 )
 
                 // Make the API call using your Retrofit instance and service
                 val response: ZpResponse = ZpInstance.api.postApiData(request)
-
+                kotlinx.coroutines.delay(1500) // Simulate network delay
                 // Update state to Success with the received data
                 _apiDataState.value = UiState.Success(response)
                 Log.d("ViewModelZPAPI", "API Call Success: ${response.id}") // Example logging
@@ -65,5 +65,11 @@ class ZpViewModel : ViewModel() { // Your class must inherit from ViewModel
                 _apiDataState.value = UiState.Error("An unexpected error occurred.")
             }
         }
+    }
+
+    fun resetState() {
+        // Simply set the state back to Idle
+        _apiDataState.value = UiState.Idle
+        Log.d("ZpViewModel", "API State Reset to Idle")
     }
 }
