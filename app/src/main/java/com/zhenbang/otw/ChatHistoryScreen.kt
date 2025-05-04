@@ -28,9 +28,10 @@ import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatHistoryScreen(
-    navController: NavController,
-    chatHistoryViewModel: ChatHistoryViewModel = viewModel()
+fun ChatHistoryContent(
+    modifier: Modifier = Modifier,
+    chatHistoryViewModel: ChatHistoryViewModel, // Pass ViewModel
+    onNavigateToMessaging: (otherUserId: String) -> Unit // Callback for clicking a chat
 ) {
     val chatHistory by chatHistoryViewModel.chatHistory.collectAsState()
     val isLoading by chatHistoryViewModel.isLoading.collectAsState()
@@ -57,71 +58,41 @@ fun ChatHistoryScreen(
     }
 
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Chats") },
-                // *** ADDED NAVIGATION ICON ***
-                navigationIcon = {
-                    // Add IconButton for click handling
-                    IconButton(onClick = { navController.navigateUp() }) {
-                        // Use AutoMirrored ArrowBack for LTR/RTL support
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back" // For accessibility
-                        )
-                    }
-                }
-                // *** END OF ADDED CODE ***
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    // Navigate to the UserListScreen to start a new chat
-                    navController.navigate(Routes.USER_LIST)
-                }
-            ) {
-                Icon(Icons.Filled.AddComment, contentDescription = "New Chat")
+    Box(modifier = modifier.fillMaxSize()) { // Use modifier passed from parent
+        when {
+            isLoading && chatHistory.isEmpty() -> {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             }
-        }
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            when {
-                isLoading && chatHistory.isEmpty() -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                }
-                error != null -> {
-                    Text(
-                        text = "Error: $error",
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.align(Alignment.Center).padding(16.dp)
-                    )
-                }
-                chatHistory.isEmpty() && !isLoading -> {
-                    Text(
-                        text = "No chats yet. Start a new one!", // Updated text
-                        modifier = Modifier.align(Alignment.Center).padding(16.dp)
-                    )
-                }
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        items(chatHistory, key = { it.chatId }) { chatItem ->
-                            ChatHistoryItemRow(
-                                item = chatItem,
-                                formatTimestamp = ::formatTimestamp,
-                                onClick = {
-                                    navController.navigate(Routes.messagingWithUser(chatItem.otherUserId))
-                                }
-                            )
-                            Divider(modifier = Modifier.padding(start = 72.dp))
-                        }
+            error != null -> {
+                Text(
+                    text = "Error: $error",
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.align(Alignment.Center).padding(16.dp)
+                )
+            }
+            chatHistory.isEmpty() && !isLoading -> {
+                Text(
+                    text = "No chats yet. Start a new one!",
+                    modifier = Modifier.align(Alignment.Center).padding(16.dp)
+                )
+            }
+            else -> {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    // Add padding for FAB if FAB is outside this composable
+                    contentPadding = PaddingValues(bottom = 80.dp)
+                ) {
+                    items(chatHistory, key = { it.chatId }) { chatItem ->
+                        // Use ChatHistoryItemRow (make sure it's accessible/imported)
+                        ChatHistoryItemRow(
+                            item = chatItem,
+                            formatTimestamp = ::formatTimestamp,
+                            onClick = {
+                                // Use the callback to navigate
+                                onNavigateToMessaging(chatItem.otherUserId)
+                            }
+                        )
+                        Divider(modifier = Modifier.padding(start = 72.dp)) // Keep divider
                     }
                 }
             }

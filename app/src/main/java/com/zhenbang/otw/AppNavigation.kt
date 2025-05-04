@@ -53,6 +53,9 @@ import com.zhenbang.otw.ui.screen.HomeScreen
 import com.zhenbang.otw.ui.viewmodel.LiveLocationViewModel
 import com.zhenbang.otw.ui.viewmodel.NewsViewModel
 import com.zhenbang.otw.ui.viewmodel.WeatherViewModel
+import com.zhenbang.otw.UserListScreen
+import com.zhenbang.otw.MessagingScreen
+import com.zhenbang.otw.ui.viewmodel.ChatHistoryViewModel
 
 
 // --- Unified Destinations ---
@@ -80,6 +83,26 @@ object AppDestinations {
     const val ADD_EDIT_TASK_ROUTE = "add_edit_task/{$DEPARTMENT_ID_ARG}/{$TASK_ID_ARG}"
     const val ADD_EDIT_ISSUE_ROUTE = "add_edit_issue/{$DEPARTMENT_ID_ARG}/{$ISSUE_ID_ARG}"
     const val ISSUE_DISCUSSION_ROUTE = "issue_discussion/{$ISSUE_ID_ARG}"
+
+    // --- NEW Chat Routes ---
+    const val CHAT_HISTORY_ROUTE = "chat_history"
+    const val USER_LIST_ROUTE = "user_list" // For starting new chats
+    const val OTHER_USER_ID_ARG = "otherUserId" // Argument name for MessagingScreen
+    const val MESSAGING_ROUTE = "messaging/{$OTHER_USER_ID_ARG}" // Route with argument
+}
+
+object Routes {
+    const val CHAT_HISTORY = AppDestinations.CHAT_HISTORY_ROUTE
+    const val USER_LIST = AppDestinations.USER_LIST_ROUTE
+    private const val MESSAGING_BASE = "messaging" // Base part of route
+
+    // Creates "messaging/{otherUserId}"
+    fun messagingWithUser(otherUserId: String): String {
+        // Basic encoding might be needed if user IDs can contain special chars, but usually safe.
+        return "$MESSAGING_BASE/${Uri.encode(otherUserId)}"
+    }
+
+    // Add other helpers if needed (e.g., for department routes)
 }
 
 private enum class ResolvedAuthState {
@@ -199,7 +222,10 @@ fun AppNavigation() {
             AppDestinations.LANGUAGE_SELECTION_ROUTE,
             AppDestinations.MANAGE_ACCOUNT_ROUTE,
             AppDestinations.PRIVACY_ROUTE,
-            AppDestinations.ISSUE_DISCUSSION_ROUTE
+            AppDestinations.ISSUE_DISCUSSION_ROUTE,
+            AppDestinations.USER_LIST_ROUTE,
+            AppDestinations.MESSAGING_ROUTE,
+            AppDestinations.CHAT_HISTORY_ROUTE
         )
 
         val targetRoute: String? = when (resolvedAuthState) {
@@ -394,6 +420,7 @@ fun AppNavigation() {
             val weatherViewModel: WeatherViewModel = viewModel()
             val departmentViewModel: DepartmentViewModel = viewModel(factory = DepartmentViewModel.Factory(context))
             val liveLocationViewModel: LiveLocationViewModel = viewModel() // Obtain LiveLocationViewModel
+            val chatHistoryViewModel: ChatHistoryViewModel = viewModel()
             // Call the new HomeScreen
             HomeScreen(
                 navController = navController,
@@ -412,6 +439,9 @@ fun AppNavigation() {
                     navController.navigate(
                         Screen.DepartmentDetails.createRoute(deptId, deptName) // Use Screen object from departments package
                     )
+                },
+                onNavigateToMessaging = { otherUserId ->
+                    navController.navigate(Routes.messagingWithUser(otherUserId))
                 }
                 // Note: Logout is not directly on HomeScreen, assumed handled via Profile/Settings
             )
@@ -512,6 +542,35 @@ fun AppNavigation() {
                 issueViewModel = issueViewModel,
                 issueId = issueId
             )
+        }
+
+        composable(route = AppDestinations.USER_LIST_ROUTE) { // Or Routes.USER_LIST
+            // ViewModel is likely obtained inside the screen
+            UserListScreen(navController = navController)
+        }
+
+        composable(
+            route = AppDestinations.MESSAGING_ROUTE, // Or Routes.MESSAGING
+            arguments = listOf(
+                navArgument(AppDestinations.OTHER_USER_ID_ARG) {
+                    type = NavType.StringType // User IDs are usually strings
+                    // nullable = false // Assume ID is required
+                }
+            )
+        ) { backStackEntry ->
+            val otherUserId = backStackEntry.arguments?.getString(AppDestinations.OTHER_USER_ID_ARG)
+            if (otherUserId != null) {
+                // ViewModel is obtained inside the screen using Factory with IDs
+                MessagingScreen(
+                    navController = navController,
+                    userIdToChatWith = otherUserId
+                )
+            } else {
+                // Handle error: User ID missing from arguments
+                Log.e("AppNavigation", "otherUserId argument missing for messaging route.")
+                Text("Error: User not specified.")
+                LaunchedEffect(Unit) { navController.popBackStack() } // Go back
+            }
         }
     } // End NavHost
 } // End AppNavigation
