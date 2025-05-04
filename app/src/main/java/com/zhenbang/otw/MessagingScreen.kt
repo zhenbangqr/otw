@@ -736,21 +736,19 @@ fun MessagingScreen(
                 showJsonDialog = false
                 zpViewModel.resetState() // Reset on dismiss
             },
-            title = { Text("AI Analysis") },
+            title = { Text("AI Summary") },
             text = {
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 150.dp, max = 400.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp, max = 400.dp), // Reduced min height slightly
                     contentAlignment = Alignment.Center
                 ) {
                     when (val state = apiState) {
                         is UiState.Idle -> {
-                            LazyColumn {
-                                item { Text("JSON to send:", fontWeight = FontWeight.Bold) }
-                                item { Spacer(Modifier.height(8.dp)) }
-                                item { Text(generatedJson) } // Display the generated JSON
-                            }
+                            // Show confirmation text instead of JSON
+                            Text(
+                                text = "Generate an AI summary for the selected timeframe?",
+                                style = MaterialTheme.typography.bodyLarge // Slightly larger text
+                            )
                         }
 
                         is UiState.Loading -> {
@@ -778,12 +776,12 @@ fun MessagingScreen(
                     when (apiState) {
                         is UiState.Idle -> {
                             TextButton(onClick = { zpViewModel.fetchDataFromApi(generatedJson) }) {
-                                Text("Send to AI")
+                                Text("Generate")
                             }
                         }
 
                         is UiState.Loading -> {
-                            TextButton(onClick = {}, enabled = false) { Text("Sending...") }
+                            TextButton(onClick = {}, enabled = false) { Text("Generating...") }
                         }
 
                         is UiState.Success -> { /* No primary button here */
