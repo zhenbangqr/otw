@@ -145,8 +145,8 @@ fun AddEditTaskScreen(
     taskViewModel: TaskViewModel,
     taskId: Int
 ) {
-    var title by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
+    var title by rememberSaveable { mutableStateOf("") }
+    var description by rememberSaveable { mutableStateOf("") }
     val taskToEdit by taskViewModel.getTaskById(taskId).collectAsState(initial = null)
 
     // State to hold the list of users in the department
@@ -157,7 +157,7 @@ fun AddEditTaskScreen(
         remember { mutableStateListOf<String>() } // Emails of users to assign
     val currentUserEmail = FirebaseAuth.getInstance().currentUser?.email
 
-    var assignSearchQuery by remember { mutableStateOf("") }
+    var assignSearchQuery by rememberSaveable { mutableStateOf("") }
     val filteredDeptUsers = remember(deptUsers, assignSearchQuery) {
         deptUsers.filter { it.userEmail.contains(assignSearchQuery, ignoreCase = true) }
     }
@@ -288,11 +288,20 @@ fun AddEditTaskScreen(
                 title = { Text("Assign People to Task") },
                 text = {
                     Column {
+                        OutlinedTextField(
+                            value = assignSearchQuery,
+                            onValueChange = { assignSearchQuery = it },
+                            placeholder = { Text("Search email") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                         if (deptUsers.isEmpty()) {
                             Text("No users in this department to assign.")
+                        } else if (filteredDeptUsers.isEmpty()) {
+                            Text("No matching users found.")
                         } else {
                             LazyColumn(modifier = Modifier.fillMaxHeight(0.7f)) {
-                                items(deptUsers) { user ->  // Changed from deptUsers to user
+                                items(filteredDeptUsers) { user ->
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()

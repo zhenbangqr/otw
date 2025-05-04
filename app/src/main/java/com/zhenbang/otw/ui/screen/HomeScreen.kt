@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddComment
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.SortByAlpha
 import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -68,20 +70,31 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.zhenbang.otw.R
 import com.zhenbang.otw.profile.ProfileViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import com.zhenbang.otw.ChatHistoryContent
+import com.zhenbang.otw.LiveLocationScreen
+import com.zhenbang.otw.Routes
+import com.zhenbang.otw.ui.viewmodel.ChatHistoryViewModel
+import com.zhenbang.otw.ui.viewmodel.LiveLocationViewModel
 
 
 @OptIn(ExperimentalMaterial3Api::class) // For TopAppBar, Scaffold, FilterChip
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
+    navController: NavController,
     newsViewModel: NewsViewModel = viewModel(),
     weatherViewModel: WeatherViewModel = viewModel(),
     departmentViewModel: DepartmentViewModel = viewModel(factory = DepartmentViewModel.Factory(LocalContext.current)),
     profileViewModel: ProfileViewModel = viewModel(),
+    liveLocationViewModel: LiveLocationViewModel = viewModel(),
+    chatHistoryViewModel: ChatHistoryViewModel = viewModel(), // <-- Obtain ChatHistoryViewModel
     onNavigateToProfile: () -> Unit = {},
     onNavigateToNotifications: () -> Unit = {},
-    onNavigateBottomBar: (String) -> Unit = {},
     onNavigateToDepartmentDetails: (departmentId: Int, departmentName: String) -> Unit,
+    // --- Add callback for navigating to messaging screen ---
+    onNavigateToMessaging: (otherUserId: String) -> Unit
 ) {
     val profileUiState by profileViewModel.uiState.collectAsState()
     val userProfile = profileUiState.userProfile
@@ -162,6 +175,20 @@ fun HomeScreen(
                     )
                 }
             }
+        },
+        floatingActionButton = {
+            // Show FAB only when Chat content is selected
+            if (selectedContent == "Chat") {
+                FloatingActionButton(
+                    onClick = {
+                        // Navigate to the UserListScreen
+                        navController.navigate(Routes.USER_LIST) // Assumes Routes.USER_LIST is defined
+                    }
+                ) {
+                    Icon(Icons.Filled.AddComment, contentDescription = "New Chat")
+                }
+            }
+            // No FAB is shown if selectedContent is not "Chat"
         }
     ) { innerPadding ->
         // --- Add Surface for background shadow ---
@@ -207,12 +234,17 @@ fun HomeScreen(
                     )
                 }
                 "Location" -> {
-                    // Placeholder for Location Content
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center){ Text("Location Content Area")}
+                    LiveLocationScreen(
+                        navController = navController, // Pass NavController
+                        liveLocationViewModel = liveLocationViewModel // Pass ViewModel
+                    )
                 }
                 "Chat" -> {
-                    // Placeholder for Chat Content
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center){ Text("Chat Content Area")}
+                    ChatHistoryContent(
+                        modifier = Modifier.fillMaxSize(),
+                        chatHistoryViewModel = chatHistoryViewModel,
+                        onNavigateToMessaging = onNavigateToMessaging // Pass callback down
+                    )
                 }
             }
         }
@@ -225,6 +257,6 @@ fun HomeScreen(
 @Composable
 fun HomeScreenPreview() {
     OnTheWayTheme { // Ensure your theme is applied
-        HomeScreen(onNavigateToDepartmentDetails = { _, _ -> })
+        Text("HomeScreen Preview Requires Setup")
     }
 }

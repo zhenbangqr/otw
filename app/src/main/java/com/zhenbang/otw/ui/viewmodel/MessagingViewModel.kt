@@ -20,15 +20,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.location.* // Import LocationServices and related classes
+import com.google.firebase.Timestamp // Make sure Timestamp is imported
 import com.google.firebase.firestore.FieldValue // For serverTimestamp() used in updateChatMetadata
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException // Explicit import for error checking
 import com.google.firebase.firestore.GeoPoint // Import GeoPoint
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions // For merge()
 import com.google.firebase.firestore.ktx.toObject
 import com.google.firebase.storage.FirebaseStorage
 // import com.zhenbang.otw.BuildConfig // <-- Import BuildConfig if API key is stored there
-import com.zhenbang.otw.messagemodel.ChatMessage // Ensure this has a @ServerTimestamp annotated timestamp field (Timestamp? or Date?) = null
+import com.zhenbang.otw.messagemodel.ChatMessage // Ensure this has the necessary fields
 import com.zhenbang.otw.messagemodel.MessageType
 import kotlinx.coroutines.Dispatchers // Import Dispatchers for background work
 import kotlinx.coroutines.flow.*
@@ -51,12 +53,9 @@ class MessagingViewModel(
     private val storage = FirebaseStorage.getInstance()
     private val chatDocId = generateChatId(currentUserUid, otherUserUid)
 
-    // Reference to the main chat document (for denormalized data)
+    // References
     private val chatDocRef = db.collection("chats").document(chatDocId)
-    // Reference to the messages subcollection
     private val messagesCollectionRef = chatDocRef.collection("messages")
-
-    // Storage references
     private val chatImagesStorageRef = storage.reference.child("chat_images").child(chatDocId)
     private val chatAudioStorageRef = storage.reference.child("chat_audio").child(chatDocId)
 
@@ -80,22 +79,40 @@ class MessagingViewModel(
     private val _isFetchingLocation = MutableStateFlow(false)
     val isFetchingLocation: StateFlow<Boolean> = _isFetchingLocation.asStateFlow()
 
+    // --- StateFlows for Selection ---
+    private val _selectedMessageForReply = MutableStateFlow<ChatMessage?>(null)
+    val selectedMessageForReply: StateFlow<ChatMessage?> = _selectedMessageForReply.asStateFlow()
+
+    private val _editingMessage = MutableStateFlow<ChatMessage?>(null)
+    val editingMessage: StateFlow<ChatMessage?> = _editingMessage.asStateFlow()
+
     // --- MediaRecorder ---
     private var mediaRecorder: MediaRecorder? = null
     private var currentAudioFilePath: String? = null
 
-    // **IMPORTANT:** Replace this with your actual secure way of getting the API key
-    // For example, using BuildConfig: private val MAPS_API_KEY = BuildConfig.MAPS_API_KEY
-    // Or inject it via Hilt/Dagger. NEVER hardcode it here.
-    private val MAPS_API_KEY = "AIzaSyCppCCTlCgmdXPLpkrhCYHy2vXEdYsgY08" // <-- REPLACE THIS
+    // **IMPORTANT:** Replace with secure API key retrieval
+    private val MAPS_API_KEY = "YOUR_STATIC_MAPS_API_KEY" // <-- REPLACE THIS
+
+    // --- State for Preview Update Logic ---
+    private var lastUpdatedPreviewMessageId: String? = null // <-- ADDED: Tracks the last message used for preview
 
     init {
-        if (MAPS_API_KEY.startsWith("YOUR_")) { // Basic check if placeholder is still there
-            Log.w("ViewModelSetup", "Static Maps API Key is not set!")
-            // Consider setting an error state or disabling location feature
+        Log.d("MessagingViewModel", "Initializing with currentUserUid: [$currentUserUid], otherUserUid: [$otherUserUid]")
+        if (currentUserUid.isBlank() || otherUserUid.isBlank()) {
+            Log.e("MessagingViewModel", "CRITICAL: One or both UIDs are blank!")
+            _error.value = "Cannot initialize chat: Invalid user IDs."
+        } else {
+            viewModelScope.launch {
+                val chatSetupSuccess = ensureChatDocumentExists()
+                if (chatSetupSuccess) {
+                    Log.d("MessagingViewModel", "Chat document confirmed/created.")
+                    fetchPartnerName()
+                    listenForMessages() // This will now handle initial preview setting too
+                } else {
+                    Log.e("MessagingViewModel", "Initialization failed: Could not ensure chat document exists.")
+                }
+            }
         }
-        listenForMessages()
-        fetchPartnerName()
     }
 
     override fun onCleared() {
@@ -112,59 +129,44 @@ class MessagingViewModel(
     private fun createAudioFilePath(): String? {
         val context = getApplication<Application>().applicationContext
         val audioDir = File(context.cacheDir, "audio_recordings")
-        if (!audioDir.exists()) {
-            audioDir.mkdirs()
-        }
+        if (!audioDir.exists()) audioDir.mkdirs()
         val fileName = "${UUID.randomUUID()}.3gp"
         val audioFile = File(audioDir, fileName)
         return try {
-            audioFile.createNewFile()
-            audioFile.absolutePath
+            audioFile.createNewFile(); audioFile.absolutePath
         } catch (e: IOException) {
-            Log.e("MessagingViewModel", "Failed to create audio file", e)
-            _error.value = "Failed to prepare for recording."
-            null
+            Log.e("MessagingViewModel", "Failed to create audio file", e); _error.value = "Failed to prepare for recording."; null
         }
     }
 
     // --- Denormalization Helper ---
-    // Updates the main chat document with last message info
-    private suspend fun updateChatMetadata(preview: String, timestamp: Any) {
+    // This function remains the same, it's called by the listener now.
+    private suspend fun updateChatMetadata(preview: String?, timestamp: Any?) {
         val chatUpdateData = mapOf(
-            "participants" to listOf(currentUserUid, otherUserUid), // Ensure this is always set/updated
+            "participants" to listOf(currentUserUid, otherUserUid), // Keep participants updated just in case
             "lastMessagePreview" to preview,
-            "lastMessageTimestamp" to timestamp // Use FieldValue.serverTimestamp() or actual Timestamp
+            "lastMessageTimestamp" to timestamp
         )
         try {
-            // Use set with merge option to create the document if it doesn't exist,
-            // or update existing fields without overwriting others.
+            // Use merge to avoid overwriting other potential chat fields
             chatDocRef.set(chatUpdateData, SetOptions.merge()).await()
-            Log.d("MessagingViewModel", "Chat metadata updated for $chatDocId")
+            Log.d("MessagingViewModel", "Chat metadata updated via listener/send. Preview: $preview, Timestamp: $timestamp")
         } catch (e: Exception) {
-            if (e is com.google.firebase.firestore.FirebaseFirestoreException && e.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+            if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
                 Log.e("MessagingViewModel", "PERMISSION_DENIED updating chat metadata for $chatDocId. Check Firestore Rules!", e)
-                _error.value = "Error updating chat (Permissions). Check Rules." // Show specific error if needed
+                _error.value = "Error syncing chat status (Permissions)." // Potentially less intrusive error message
             } else {
                 Log.e("MessagingViewModel", "Failed to update chat metadata for $chatDocId", e)
-                // Optionally set an error state, but maybe non-critical
+                // Avoid overwriting specific user action errors
             }
         }
     }
 
-
-    // --- Recording Logic ---
+    // --- Recording Logic (Unchanged) ---
     fun startRecording() {
         if (_isRecording.value) { Log.w("MessagingViewModel", "Already recording."); return }
-
-        currentAudioFilePath = createAudioFilePath()
-        if (currentAudioFilePath == null) { Log.e("MessagingViewModel", "Cannot start recording, file path is null."); return }
-
-        mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            MediaRecorder(getApplication<Application>().applicationContext)
-        } else {
-            @Suppress("DEPRECATION") MediaRecorder()
-        }
-
+        currentAudioFilePath = createAudioFilePath() ?: return
+        mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) MediaRecorder(getApplication()) else @Suppress("DEPRECATION") MediaRecorder()
         mediaRecorder?.apply {
             try {
                 setAudioSource(MediaRecorder.AudioSource.MIC)
@@ -173,338 +175,276 @@ class MessagingViewModel(
                 setOutputFile(currentAudioFilePath)
                 prepare()
                 start()
-                _isRecording.value = true
-                _error.value = null
-                Log.d("MessagingViewModel", "Recording started to: $currentAudioFilePath")
+                _isRecording.value = true; _error.value = null
+                Log.d("MessagingViewModel", "Recording started: $currentAudioFilePath")
             } catch (e: Exception) {
-                Log.e("MessagingViewModel", "MediaRecorder setup/start failed", e)
-                _error.value = "Recording failed to start: ${e.localizedMessage}"
-                stopRecordingInternal(deleteFile = true) // Clean up failed recording
+                Log.e("MessagingViewModel", "MediaRecorder setup/start failed", e); _error.value = "Recording failed: ${e.localizedMessage}"; stopRecordingInternal(deleteFile = true)
             }
         }
     }
 
     fun stopRecordingAndSend() {
-        if (!_isRecording.value) { Log.w("MessagingViewModel", "Not recording."); return }
-
+        if (!_isRecording.value) return
         val filePath = currentAudioFilePath
         stopRecordingInternal(deleteFile = false) // Stop recording but keep the file for upload
-
         if (filePath != null) {
             val audioFile = File(filePath)
             if (audioFile.exists() && audioFile.length() > 0) {
                 val durationMillis = getAudioDuration(filePath)
-                Log.d("MessagingViewModel", "Recording stopped. File: ${audioFile.toUri()}, Size: ${audioFile.length()} bytes, Duration: $durationMillis ms")
-                uploadAudioFile(audioFile.toUri(), filePath, durationMillis)
+                Log.d("MessagingViewModel", "Recording stopped. File: ${audioFile.toUri()}, Duration: $durationMillis ms")
+                uploadAudioFile(audioFile.toUri(), filePath, durationMillis) // Upload initiates message send
             } else {
-                Log.e("MessagingViewModel", "Audio file is missing or empty: $filePath")
-                _error.value = "Failed to save recording."
+                Log.e("MessagingViewModel", "Audio file missing/empty: $filePath"); _error.value = "Failed to save recording."
             }
         } else {
-            Log.e("MessagingViewModel", "Audio file path was null after stopping recording.");
-            _error.value = "Failed to save recording."
+            Log.e("MessagingViewModel", "Audio file path null after stop."); _error.value = "Failed to save recording."
         }
-        currentAudioFilePath = null // Clear path after attempting send
+        currentAudioFilePath = null // Clear path after attempting upload
     }
 
     private fun getAudioDuration(filePath: String): Long? {
-        if (!File(filePath).exists()) return null // Add check if file exists
+        if (!File(filePath).exists()) return null
         val retriever = MediaMetadataRetriever()
         return try {
             retriever.setDataSource(filePath)
             val durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-            retriever.release() // Ensure release happens
             durationStr?.toLongOrNull()
         } catch (e: Exception) {
             Log.e("MessagingViewModel", "Failed to get audio duration for $filePath", e)
-            try { retriever.release() } catch (_: Exception) {} // Attempt release again in catch block
             null
+        } finally {
+            // Ensure release happens even if conversion fails or exceptions occur
+            try { retriever.release() } catch (_: Exception) {}
         }
     }
 
     private fun stopRecordingInternal(deleteFile: Boolean) {
-        if (mediaRecorder != null) {
+        mediaRecorder?.let {
             try {
-                if (_isRecording.value) { // Only stop if actually recording
-                    mediaRecorder?.stop()
-                }
-            } catch (e: IllegalStateException) {
-                Log.e("MessagingViewModel", "MediaRecorder stop() failed - likely already stopped or not started", e)
-            } catch (e: RuntimeException) {
-                Log.e("MessagingViewModel", "MediaRecorder stop() failed with RuntimeException", e)
-            } finally {
-                try {
-                    // Reset prepares the recorder for reuse, release frees resources
-                    mediaRecorder?.reset()
-                    mediaRecorder?.release()
-                } catch (e: Exception) {
-                    Log.e("MessagingViewModel", "Error resetting/releasing MediaRecorder", e)
-                }
-                mediaRecorder = null
-                _isRecording.value = false // Update state *after* cleanup attempts
-                Log.d("MessagingViewModel", "MediaRecorder stopped and released.")
+                // Check recording state before stopping to avoid crash if already stopped
+                if (_isRecording.value) it.stop()
+            } catch (e: RuntimeException) { // Catch specific exception on stop if known, otherwise broad Exception
+                Log.e("MessagingViewModel", "MediaRecorder stop threw exception", e)
+            } catch (e: Exception) {
+                Log.e("MessagingViewModel", "MediaRecorder stop general exception", e)
             }
-        } else {
-            // If recorder is already null, just ensure state is false
-            _isRecording.value = false
-        }
+            finally {
+                try { it.reset() } catch (e: Exception) { Log.e("MessagingViewModel", "MediaRecorder reset failed", e) }
+                try { it.release() } catch (e: Exception) { Log.e("MessagingViewModel", "MediaRecorder release failed", e) }
+                mediaRecorder = null
+                _isRecording.value = false // Ensure state is updated
+                Log.d("MessagingViewModel", "MediaRecorder stopped/released.")
+            }
+        } ?: run { _isRecording.value = false } // Ensure state is false if recorder was already null
 
         if (deleteFile && currentAudioFilePath != null) {
             try {
-                val fileToDelete = File(currentAudioFilePath!!)
-                if (fileToDelete.exists()) {
-                    if (!fileToDelete.delete()) {
-                        Log.w("MessagingViewModel", "Failed to delete temporary audio file: $currentAudioFilePath")
-                    } else {
-                        Log.d("MessagingViewModel", "Deleted temporary audio file: $currentAudioFilePath")
-                    }
+                val file = File(currentAudioFilePath!!)
+                if (file.exists()) {
+                    if (file.delete()) Log.d("MessagingViewModel", "Deleted temp audio file: $currentAudioFilePath")
+                    else Log.w("MessagingViewModel", "Failed to delete temp audio file: $currentAudioFilePath")
                 }
-            } catch (e: Exception) {
-                Log.e("MessagingViewModel", "Error deleting temporary audio file: $currentAudioFilePath", e)
-            }
-            currentAudioFilePath = null // Clear path after deletion
+            } catch (e: Exception) { Log.e("MessagingViewModel", "Error deleting temp audio file", e) }
+            currentAudioFilePath = null // Clear path after deletion attempt
         }
     }
 
-    // --- Location Logic ---
+    // --- Location Logic (Unchanged) ---
     @SuppressLint("MissingPermission")
     fun sendCurrentLocation() {
         val context = getApplication<Application>().applicationContext
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
             ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            _error.value = "Location permission not granted."; Log.w("MessagingViewModel", "sendCurrentLocation called without permission."); return
+            _error.value = "Location permission not granted."; return
         }
-        // Check if API key is set
-        if (MAPS_API_KEY.startsWith("YOUR_") || MAPS_API_KEY.length < 20) { // Basic check
-            _error.value = "Map feature not configured."
-            Log.e("MessagingViewModel", "Static Maps API Key is missing or invalid.")
-            return
+        if (MAPS_API_KEY.startsWith("YOUR_") || MAPS_API_KEY.length < 20) {
+            _error.value = "Map feature not configured."; Log.e("MessagingViewModel", "Maps API Key invalid."); return
         }
 
-        _isFetchingLocation.value = true; _error.value = null; Log.d("MessagingViewModel", "Requesting current location...")
-        // Increased timeout and ensure only one update request
-        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, TimeUnit.SECONDS.toMillis(15))
-            .setMaxUpdates(1)
-            .build()
+        _isFetchingLocation.value = true; _error.value = null; Log.d("MessagingViewModel", "Requesting location...")
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, TimeUnit.SECONDS.toMillis(15)).setMaxUpdates(1).build()
+
+        removeLocationUpdates() // Ensure no previous callback is active
 
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 val location = locationResult.lastLocation
-                removeLocationUpdates() // Remove updates as soon as we get a result (or fail)
+                removeLocationUpdates() // Got result or null, remove callback
                 if (location != null) {
                     Log.d("MessagingViewModel", "Location received: Lat ${location.latitude}, Lon ${location.longitude}")
                     val geoPoint = GeoPoint(location.latitude, location.longitude)
-                    viewModelScope.launch { createAndSendLocationMessage(geoPoint) } // Launch suspend fun
+                    // Launch coroutine to handle geocoding and sending
+                    viewModelScope.launch { createAndSendLocationMessage(geoPoint) }
                 } else {
-                    Log.e("MessagingViewModel", "Location result was null.")
-                    _error.value = "Failed to get current location."
-                    _isFetchingLocation.value = false
+                    Log.e("MessagingViewModel", "Location result null."); _error.value = "Failed to get location."; _isFetchingLocation.value = false
                 }
-                // Removed removeLocationUpdates() from here, moved to top of function
             }
-            override fun onLocationAvailability(locationAvailability: LocationAvailability) {
-                if (!locationAvailability.isLocationAvailable) {
-                    Log.e("MessagingViewModel", "Location is not available.")
-                    _error.value = "Location currently unavailable.";
-                    _isFetchingLocation.value = false;
-                    removeLocationUpdates() // Remove updates if location becomes unavailable
+            override fun onLocationAvailability(availability: LocationAvailability) {
+                if (!availability.isLocationAvailable) {
+                    Log.e("MessagingViewModel", "Location not available."); _error.value = "Location unavailable."; _isFetchingLocation.value = false; removeLocationUpdates()
                 }
             }
         }
         try { fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback!!, Looper.getMainLooper()) }
-        catch (e: SecurityException) { Log.e("MessagingViewModel", "SecurityException during location request", e); _error.value = "Location permission error."; _isFetchingLocation.value = false; removeLocationUpdates() }
-        catch (e: Exception) { Log.e("MessagingViewModel", "Exception during location request", e); _error.value = "Could not request location: ${e.localizedMessage}"; _isFetchingLocation.value = false; removeLocationUpdates() }
+        catch (e: SecurityException) { Log.e("MessagingViewModel", "Location permission error", e); _error.value = "Location permission error."; _isFetchingLocation.value = false; removeLocationUpdates() }
+        catch (e: Exception) { Log.e("MessagingViewModel", "Location request error", e); _error.value = "Could not get location: ${e.localizedMessage}"; _isFetchingLocation.value = false; removeLocationUpdates() }
     }
 
     private fun removeLocationUpdates() {
-        locationCallback?.let {
-            Log.d("MessagingViewModel", "Removing location updates callback.")
-            fusedLocationClient.removeLocationUpdates(it)
-            locationCallback = null
-        }
+        locationCallback?.let { fusedLocationClient.removeLocationUpdates(it); locationCallback = null; Log.d("MessagingViewModel", "Location updates removed.") }
     }
 
     private suspend fun createAndSendLocationMessage(geoPoint: GeoPoint) {
-        var fetchedLocationName: String? = "Shared Location" // Default name
+        // Note: _isFetchingLocation is set true before calling this
+        val replyInfo = _selectedMessageForReply.value // Capture reply state
+        var fetchedLocationName: String? = "Shared Location"
         val context = getApplication<Application>().applicationContext
+        val repliedToSenderName = replyInfo?.senderId?.let { getDisplayName(it) }
 
-        // Get Location Name (Reverse Geocoding) in background thread
+        // Reverse Geocoding in background IO thread
         withContext(Dispatchers.IO) {
             if (Geocoder.isPresent()) {
-                val geocoder = Geocoder(context, Locale.getDefault()) // Specify locale
+                val geocoder = Geocoder(context, Locale.getDefault())
                 try {
-                    // Use the newer API for Android Tiramisu (API 33) and above if needed
+                    // Handle potential SDK differences for getFromLocation
                     val addresses: List<Address>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        // Requires a callback, simpler to stick with deprecated for now unless targeting 33+ strictly
-                        geocoder.getFromLocation(geoPoint.latitude, geoPoint.longitude, 1)
+                        // Android 13+ provides a callback mechanism, but for simplicity,
+                        // let's stick with the potentially blocking deprecated version for now.
+                        // If targeting 33+, consider implementing the async version.
+                        @Suppress("DEPRECATION") geocoder.getFromLocation(geoPoint.latitude, geoPoint.longitude, 1)
                     } else {
-                        @Suppress("DEPRECATION")
-                        geocoder.getFromLocation(geoPoint.latitude, geoPoint.longitude, 1)
+                        @Suppress("DEPRECATION") geocoder.getFromLocation(geoPoint.latitude, geoPoint.longitude, 1)
                     }
 
-                    if (addresses != null && addresses.isNotEmpty()) {
-                        val address = addresses[0]
-                        // Build a more comprehensive name
-                        fetchedLocationName = listOfNotNull(address.featureName, address.thoroughfare, address.locality)
-                            .joinToString(", ")
-                            .ifEmpty { "Nearby Location" } // Fallback if parts are null/empty
+                    addresses?.firstOrNull()?.let { addr ->
+                        // Construct a readable address string
+                        fetchedLocationName = listOfNotNull(addr.featureName, addr.thoroughfare, addr.locality)
+                            .joinToString(", ").ifEmpty { // Fallback if main parts are null
+                                listOfNotNull(addr.subLocality, addr.adminArea).joinToString(", ").ifEmpty { "Nearby Location" }
+                            }
                         Log.d("Geocoder", "Fetched address: $fetchedLocationName")
-                    } else {
-                        Log.w("Geocoder", "No address found for location.")
-                    }
-                } catch (e: IOException) { Log.e("Geocoder", "Geocoder failed due to network or I/O error", e) }
-                catch (e: IllegalArgumentException) { Log.e("Geocoder", "Geocoder failed due to invalid lat/lon", e)}
-                catch (e: Exception) { Log.e("Geocoder", "Geocoder failed", e) } // Catch other potential errors
-            } else { Log.w("Geocoder", "Geocoder not present on this device.") }
-        }
+                    } ?: Log.w("Geocoder", "No address found for location.")
+                } catch (e: IOException) { Log.e("Geocoder", "Geocoder network I/O error", e)
+                } catch (e: Exception) { Log.e("Geocoder", "Geocoder general error", e) } // Catch other potential issues
+            } else { Log.w("Geocoder", "Geocoder service not present on device.") }
+        } // End of withContext(Dispatchers.IO)
 
-        // Generate Static Map URL
         val staticMapUrl = generateStaticMapUrl(geoPoint)
-
-        // Create the message object with server timestamp
         val newMessage = ChatMessage(
-            senderId = currentUserUid,
-            receiverId = otherUserUid,
-            location = geoPoint,
-            locationName = fetchedLocationName,
-            staticMapUrl = staticMapUrl, // Save the map URL
-            messageType = MessageType.LOCATION,
-            timestamp = null, // CORRECT: Keep null for @ServerTimestamp annotation
-            text = null, audioUrl = null, imageUrl = null, audioDurationMillis = null
+            senderId = currentUserUid, receiverId = otherUserUid,
+            location = geoPoint, locationName = fetchedLocationName, staticMapUrl = staticMapUrl,
+            messageType = MessageType.LOCATION, timestamp = null, // Server sets timestamp
+            // Reply fields
+            repliedToMessageId = replyInfo?.messageId, repliedToSenderName = repliedToSenderName,
+            repliedToPreview = replyInfo?.let { generatePreview(it) }, repliedToType = replyInfo?.messageType
         )
 
-        // Save to Firestore messages subcollection
         try {
-            // CORRECT: Pass newMessage directly. Firestore SDK handles @ServerTimestamp.
             val messageRef = messagesCollectionRef.add(newMessage).await()
-            Log.d("MessagingViewModel", "Location message sent successfully. Doc ID: ${messageRef.id}")
+            Log.d("MessagingViewModel", "Location message sent. ID: ${messageRef.id}. ReplyTo: ${replyInfo?.messageId}")
             _error.value = null
-            // **DENORMALIZE:** Update the main chat document
-            updateChatMetadata("[Location] ${fetchedLocationName ?: ""}".trim(), FieldValue.serverTimestamp())
+            // Preview updated by listener now, no need to call updateChatMetadata here
+            // val previewText = "[Location] ${fetchedLocationName ?: ""}".trim()
+            // updateChatMetadata(previewText, FieldValue.serverTimestamp()) // <-- REMOVED
+            cancelReply() // Clear reply state
         } catch (e: Exception) {
-            Log.e("MessagingViewModel", "Error sending location message", e)
-            _error.value = "Failed to send location: ${e.localizedMessage}"
+            Log.e("MessagingViewModel", "Error sending location", e); _error.value = "Failed to send location: ${e.localizedMessage}"
         } finally {
-            _isFetchingLocation.value = false // Stop loading indicator
+            _isFetchingLocation.value = false // Stop loading indicator regardless of success/failure
         }
     }
 
-    // Function to generate Static Map URL
+
     private fun generateStaticMapUrl(geoPoint: GeoPoint): String? {
-        if (MAPS_API_KEY.startsWith("YOUR_") || MAPS_API_KEY.length < 20) { // Basic check
-            Log.e("StaticMap", "API Key not set, cannot generate map URL.")
-            return null // Return null if key is missing or looks invalid
+        if (MAPS_API_KEY.startsWith("YOUR_") || MAPS_API_KEY.length < 20) {
+            Log.e("StaticMap", "API Key missing/invalid."); return null
         }
         return try {
-            val lat = geoPoint.latitude
-            val lon = geoPoint.longitude
-            val size = "400x200" // Desired image size (width x height)
-            val zoom = 15 // Zoom level (adjust as needed)
-            // URL encode marker parameters separately for clarity and safety
-            val markerValue = URLEncoder.encode("color:red|label:P|$lat,$lon", "UTF-8")
-            val centerValue = URLEncoder.encode("$lat,$lon", "UTF-8")
-
-            // Construct the URL
-            val url = "https://maps.googleapis.com/maps/api/staticmap?" +
-                    "center=$centerValue" +
-                    "&zoom=$zoom" +
-                    "&size=$size" +
-                    "&maptype=roadmap" + // map type (roadmap, satellite, etc.)
-                    "&markers=$markerValue" + // Use the encoded marker string
-                    "&key=$MAPS_API_KEY" // Your API key
-
-            Log.d("StaticMap", "Generated Map URL: $url")
-            url
+            val lat = geoPoint.latitude; val lon = geoPoint.longitude
+            val marker = URLEncoder.encode("color:red|label:P|$lat,$lon", "UTF-8")
+            // Consider making size/zoom configurable if needed
+            "https://maps.googleapis.com/maps/api/staticmap?center=$lat,$lon&zoom=15&size=400x200&maptype=roadmap&markers=$marker&key=$MAPS_API_KEY"
+        } catch (e: java.io.UnsupportedEncodingException) {
+            Log.e("StaticMap", "Error encoding URL params (UTF-8 unsupported?!)", e); null // Should not happen
         } catch (e: Exception) {
-            Log.e("StaticMap", "Error encoding URL parameters", e)
-            null
+            Log.e("StaticMap", "Error generating static map URL", e); null
         }
     }
 
-
     // --- Upload and Send Logic ---
+
     private fun uploadAudioFile(audioUri: Uri, localFilePath: String, durationMillis: Long?) {
         _isUploadingAudio.value = true; _error.value = null
+        val replyInfo = _selectedMessageForReply.value
+
         viewModelScope.launch {
+            val repliedToSenderName = replyInfo?.senderId?.let { getDisplayName(it) }
             try {
                 val fileName = "${UUID.randomUUID()}.3gp"
                 val audioRef = chatAudioStorageRef.child(fileName)
-                Log.d("MessagingViewModel", "Starting audio upload for: $fileName")
-                // Upload
-                val uploadTask = audioRef.putFile(audioUri).await()
+                Log.d("MessagingViewModel", "Starting audio upload: $fileName to ${audioRef.path}")
+                audioRef.putFile(audioUri).await()
                 val downloadUrl = audioRef.downloadUrl.await()
-                Log.d("MessagingViewModel", "Audio uploaded successfully. URL: $downloadUrl")
+                Log.d("MessagingViewModel", "Audio uploaded: $downloadUrl")
 
-                // Create message object
                 val newMessage = ChatMessage(
-                    senderId = currentUserUid,
-                    receiverId = otherUserUid,
-                    audioUrl = downloadUrl.toString(),
-                    messageType = MessageType.AUDIO,
-                    audioDurationMillis = durationMillis,
-                    timestamp = null, // CORRECT: Keep null for @ServerTimestamp annotation
-                    text = null, imageUrl = null, location = null, locationName = null, staticMapUrl = null
+                    senderId = currentUserUid, receiverId = otherUserUid,
+                    audioUrl = downloadUrl.toString(), messageType = MessageType.AUDIO,
+                    audioDurationMillis = durationMillis, timestamp = null, // Server sets timestamp
+                    // Reply fields
+                    repliedToMessageId = replyInfo?.messageId, repliedToSenderName = repliedToSenderName,
+                    repliedToPreview = replyInfo?.let { generatePreview(it) }, repliedToType = replyInfo?.messageType
                 )
-                // Save message metadata to Firestore
-                // CORRECT: Pass newMessage directly. Firestore SDK handles @ServerTimestamp.
                 val messageRef = messagesCollectionRef.add(newMessage).await()
-                Log.d("MessagingViewModel", "Audio message metadata saved to Firestore. Doc ID: ${messageRef.id}")
+                Log.d("MessagingViewModel", "Audio message metadata saved. ID: ${messageRef.id}. ReplyTo: ${replyInfo?.messageId}")
+                // Preview updated by listener now, no need to call updateChatMetadata here
+                // updateChatMetadata("[Audio]", FieldValue.serverTimestamp()) // <-- REMOVED
+                cancelReply() // Clear reply state
 
-                // **DENORMALIZE:** Update the main chat document
-                updateChatMetadata("[Audio]", FieldValue.serverTimestamp())
-
-                // Delete local file *after* successful upload and metadata save
-                try {
-                    val fileToDelete = File(localFilePath)
-                    if (fileToDelete.exists()) {
-                        if (!fileToDelete.delete()) { Log.w("MessagingViewModel", "Failed to delete local audio file after upload: $localFilePath") }
-                        else { Log.d("MessagingViewModel", "Deleted local audio file after upload: $localFilePath") }
-                    }
-                } catch (e: Exception) { Log.e("MessagingViewModel", "Error deleting local audio file after upload: $localFilePath", e) }
+                // Delete local file after successful upload and metadata save
+                try { File(localFilePath).delete() } catch (e: Exception) { Log.w("MessagingViewModel", "Failed to delete local audio post-upload", e)}
 
             } catch (e: Exception) {
-                Log.e("MessagingViewModel", "Error sending audio message", e)
-                _error.value = "Failed to send audio: ${e.localizedMessage}"
-                // Consider deleting local file even on failure if appropriate
-                // try { File(localFilePath).delete() } catch (_: Exception) {}
+                Log.e("MessagingViewModel", "Error sending audio", e); _error.value = "Failed to send audio: ${e.localizedMessage}"
+                // Attempt to delete local file even on failure to avoid clutter
+                try { File(localFilePath).delete() } catch (_: Exception) {}
             } finally {
                 _isUploadingAudio.value = false
             }
         }
     }
 
-    fun sendImageMessage(imageUri: Uri, contentResolver: ContentResolver) { // Added contentResolver if needed later
+    fun sendImageMessage(imageUri: Uri, contentResolver: ContentResolver) {
         _isUploadingImage.value = true; _error.value = null
+        val replyInfo = _selectedMessageForReply.value
+
         viewModelScope.launch {
+            val repliedToSenderName = replyInfo?.senderId?.let { getDisplayName(it) }
             try {
-                val fileName = "${UUID.randomUUID()}.jpg"
+                val fileName = "${UUID.randomUUID()}.jpg" // Consider more robust extension detection if needed
                 val imageRef = chatImagesStorageRef.child(fileName)
-                Log.d("MessagingViewModel", "Starting image upload for: $fileName")
-                // Upload
-                val uploadTask = imageRef.putFile(imageUri).await()
+                Log.d("MessagingViewModel", "Starting image upload: $fileName to ${imageRef.path}")
+                imageRef.putFile(imageUri).await()
                 val downloadUrl = imageRef.downloadUrl.await()
-                Log.d("MessagingViewModel", "Image uploaded successfully. URL: $downloadUrl")
+                Log.d("MessagingViewModel", "Image uploaded: $downloadUrl")
 
-                // Create message object
                 val newMessage = ChatMessage(
-                    senderId = currentUserUid,
-                    receiverId = otherUserUid,
-                    imageUrl = downloadUrl.toString(),
-                    messageType = MessageType.IMAGE,
-                    timestamp = null, // CORRECT: Keep null for @ServerTimestamp annotation
-                    text = null, audioUrl = null, audioDurationMillis = null, location = null, locationName = null, staticMapUrl = null
+                    senderId = currentUserUid, receiverId = otherUserUid,
+                    imageUrl = downloadUrl.toString(), messageType = MessageType.IMAGE,
+                    timestamp = null, // Server sets timestamp
+                    // Reply fields
+                    repliedToMessageId = replyInfo?.messageId, repliedToSenderName = repliedToSenderName,
+                    repliedToPreview = replyInfo?.let { generatePreview(it) }, repliedToType = replyInfo?.messageType
                 )
-                // Save message metadata to Firestore
-                // CORRECT: Pass newMessage directly. Firestore SDK handles @ServerTimestamp.
-                val messageRef = messagesCollectionRef.add(newMessage).await()
-                Log.d("MessagingViewModel", "Image message metadata saved to Firestore. Doc ID: ${messageRef.id}")
 
-                // **DENORMALIZE:** Update the main chat document
-                updateChatMetadata("[Image]", FieldValue.serverTimestamp())
+                val messageRef = messagesCollectionRef.add(newMessage).await()
+                Log.d("MessagingViewModel", "Image message metadata saved. ID: ${messageRef.id}. ReplyTo: ${replyInfo?.messageId}")
+                // Preview updated by listener now, no need to call updateChatMetadata here
+                // updateChatMetadata("[Image]", FieldValue.serverTimestamp()) // <-- REMOVED
+                cancelReply() // Clear reply state
 
             } catch (e: Exception) {
-                Log.e("MessagingViewModel", "Error sending image message", e)
-                _error.value = "Failed to send image: ${e.localizedMessage}"
+                Log.e("MessagingViewModel", "Error sending image", e); _error.value = "Failed to send image: ${e.localizedMessage}"
             } finally {
                 _isUploadingImage.value = false
             }
@@ -513,114 +453,300 @@ class MessagingViewModel(
 
     fun sendMessage(text: String) {
         val trimmedText = text.trim()
-        if (trimmedText.isBlank()) return // Don't send empty messages
+        // Still allow sending empty text if replying
+        if (trimmedText.isBlank() && _selectedMessageForReply.value == null) return
 
-        // Create message object
-        val newMessage = ChatMessage(
-            senderId = currentUserUid,
-            receiverId = otherUserUid,
-            text = trimmedText,
-            messageType = MessageType.TEXT,
-            timestamp = null // CORRECT: Keep null for @ServerTimestamp annotation
-            // Other fields are null by default if using data class defaults
-        )
+        val replyInfo = _selectedMessageForReply.value // Capture reply state before coroutine
 
-        viewModelScope.launch {
+        viewModelScope.launch { // Launch coroutine for potential async name fetch
+            val repliedToSenderName = replyInfo?.senderId?.let { getDisplayName(it) }
+
+            val newMessage = ChatMessage(
+                senderId = currentUserUid, receiverId = otherUserUid,
+                text = trimmedText, messageType = MessageType.TEXT,
+                timestamp = null, // Firestore sets this via serverTimestamp() implicitly on create usually
+                // Reply fields
+                repliedToMessageId = replyInfo?.messageId,
+                repliedToSenderName = repliedToSenderName,
+                repliedToPreview = replyInfo?.let { generatePreview(it) },
+                repliedToType = replyInfo?.messageType
+            )
+
             try {
-                // Save message to Firestore
-                // CORRECT: Pass newMessage directly. Firestore SDK handles @ServerTimestamp.
                 val messageRef = messagesCollectionRef.add(newMessage).await()
-                Log.d("MessagingViewModel", "Text message sent successfully. Doc ID: ${messageRef.id}")
-                _error.value = null // Clear previous errors
-
-                // **DENORMALIZE:** Update the main chat document
-                updateChatMetadata(trimmedText, FieldValue.serverTimestamp())
-
+                Log.d("MessagingViewModel", "Text message sent. ID: ${messageRef.id}. ReplyTo: ${replyInfo?.messageId}")
+                _error.value = null
+                // Preview updated by listener now, no need to call updateChatMetadata here
+                // updateChatMetadata(trimmedText, FieldValue.serverTimestamp()) // <-- REMOVED
+                cancelReply() // Clear reply state after sending attempt
             } catch (e: Exception) {
-                // Log the specific error from Firestore if available
-                if (e is com.google.firebase.firestore.FirebaseFirestoreException) {
-                    Log.e("MessagingViewModel", "Firestore error sending text message: ${e.code}", e)
-                } else {
-                    Log.e("MessagingViewModel", "Error sending text message", e)
-                }
-                _error.value = "Failed to send message: ${e.localizedMessage}"
+                Log.e("MessagingViewModel", "Error sending text message", e); _error.value = "Failed to send message: ${e.localizedMessage}"
             }
-            // No finally block needed here unless managing a loading state for text sending
         }
     }
 
-    // --- Message Listener & Partner Name Fetch ---
+    // --- Functions for Edit/Delete/Reply Selection ---
+
+    private suspend fun getDisplayName(userId: String): String {
+        return when (userId) {
+            currentUserUid -> "You" // Simple case for current user
+            otherUserUid -> partnerName.value.takeIf { it != "User..." } ?: fetchUserName(otherUserUid) ?: "User..." // Use cached partner name if available
+            else -> fetchUserName(userId) ?: "Unknown User" // Fetch for other cases (future proofing?)
+        }
+    }
+
+    private suspend fun fetchUserName(userId: String): String? {
+        if (userId.isBlank()) return null // Avoid query with blank ID
+        return try {
+            val doc = db.collection("users").document(userId).get().await()
+            // Prioritize username, fallback to name, then return null if neither exist
+            doc.getString("username") ?: doc.getString("name")
+        } catch (e: Exception) {
+            Log.e("MessagingViewModel", "Failed to fetch username for $userId", e)
+            null // Return null on any exception during fetch
+        }
+    }
+
+    private fun generatePreview(message: ChatMessage): String {
+        // Add null check for text just in case
+        val textPreview = message.text?.take(50)?.let { if (it.length == 50) "$it..." else it }
+        return when (message.messageType) {
+            MessageType.TEXT -> textPreview ?: "[Message]" // Fallback if text is null somehow
+            MessageType.IMAGE -> "[Image]" + (textPreview?.let { "\n\"$it\"" } ?: "") // Add caption preview if text exists
+            MessageType.AUDIO -> "[Audio Message]"
+            MessageType.LOCATION -> message.locationName?.takeIf { it.isNotBlank() } ?: "[Location]" // Use locationName, fallback
+            null -> "[Unsupported Message]" // Handle potential null type
+        }
+    }
+
+    fun selectMessageForReply(message: ChatMessage) {
+        // Consider adding a check !message.isDeleted if the field still exists and you want to prevent replying to "deleted" items
+        _selectedMessageForReply.value = message
+        _editingMessage.value = null // Cancel edit if replying
+    }
+
+    fun cancelReply() {
+        _selectedMessageForReply.value = null
+    }
+
+    fun selectMessageForEdit(message: ChatMessage) {
+        // Only allow editing own, non-deleted (if field exists), text messages
+        // Add !message.isDeleted check if relevant
+        if (message.senderId == currentUserUid && message.messageType == MessageType.TEXT /* && !message.isDeleted */ ) {
+            _editingMessage.value = message
+            _selectedMessageForReply.value = null // Cancel reply if editing
+        } else {
+            Log.w("MessagingViewModel", "Cannot edit message: Not owner or not text.") // Simplified log
+            _error.value = "You can only edit your own text messages."
+        }
+    }
+
+    fun cancelEdit() {
+        _editingMessage.value = null
+    }
+
+
+    fun performEdit(newText: String) {
+        val messageToEdit = _editingMessage.value ?: return
+        // Add !messageToEdit.isDeleted check if relevant
+        if (messageToEdit.senderId != currentUserUid || messageToEdit.messageId == null || messageToEdit.messageType != MessageType.TEXT /* || messageToEdit.isDeleted */) {
+            _error.value = "Cannot edit this message."; cancelEdit(); return
+        }
+
+        val trimmedText = newText.trim()
+        if (trimmedText.isBlank()) {
+            _error.value = "Message cannot be empty."; return // Don't allow editing to empty
+        }
+        if (trimmedText == messageToEdit.text) {
+            cancelEdit(); return // No change needed
+        }
+
+        viewModelScope.launch {
+            try {
+                // Ensure isEdited flag exists in ChatMessage data class
+                val updates = mapOf("text" to trimmedText, "isEdited" to true)
+                messagesCollectionRef.document(messageToEdit.messageId).update(updates).await()
+                Log.d("MessagingViewModel", "Message ${messageToEdit.messageId} edited.")
+                _error.value = null
+                cancelEdit() // Exit editing mode on success
+
+                // Preview update is handled by listener now, no need for specific logic here
+                // val lastMsg = _messages.value.lastOrNull { !it.isDeleted }
+                // if (lastMsg?.messageId == messageToEdit.messageId) {
+                //     updateChatMetadata(trimmedText, lastMsg.timestamp ?: FieldValue.serverTimestamp())
+                // }
+
+            } catch (e: Exception) {
+                Log.e("MessagingViewModel", "Error editing message ${messageToEdit.messageId}", e)
+                _error.value = "Failed to edit message: ${e.localizedMessage}"
+                // Optionally cancel edit mode on failure too, depending on desired UX
+                // cancelEdit()
+            }
+        }
+    }
+
+    // --- Delete Function (Direct Delete) ---
+    fun deleteMessage(message: ChatMessage) {
+        // Ensure sender and messageId are valid
+        if (message.senderId != currentUserUid || message.messageId == null) {
+            _error.value = "You can only delete your own messages."; return
+        }
+
+        viewModelScope.launch {
+            try {
+                // Perform the direct delete
+                messagesCollectionRef.document(message.messageId).delete().await()
+                Log.d("MessagingViewModel", "Message ${message.messageId} deleted successfully.")
+                _error.value = null
+                // Preview update is handled by the listener reacting to the deletion
+
+            } catch (e: Exception) {
+                Log.e("MessagingViewModel", "Error deleting message ${message.messageId}", e)
+                if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                    _error.value = "Failed to delete: Permission denied. Check Rules."
+                } else {
+                    _error.value = "Failed to delete message: ${e.localizedMessage}"
+                }
+            }
+        }
+    }
+
+
+    // --- Initialization and Listener ---
+    private suspend fun ensureChatDocumentExists(): Boolean {
+        try {
+            val docSnapshot = chatDocRef.get().await()
+            if (!docSnapshot.exists()) {
+                Log.d("MessagingViewModel", "Chat document $chatDocId creating...")
+                val initialChatData = mapOf(
+                    "participants" to listOf(currentUserUid, otherUserUid),
+                    "lastMessagePreview" to null, // Initialize as null
+                    "lastMessageTimestamp" to FieldValue.serverTimestamp() // Use server timestamp for creation ordering
+                )
+                chatDocRef.set(initialChatData).await()
+                Log.d("MessagingViewModel", "Chat document created.")
+            } else {
+                Log.d("MessagingViewModel", "Chat document $chatDocId exists.")
+                // Optional: Verify/update participants if needed (handles edge cases where one user creates chat before other joins)
+                val currentParticipants = docSnapshot.get("participants") as? List<*>
+                if (currentParticipants == null || currentUserUid !in currentParticipants || otherUserUid !in currentParticipants) {
+                    Log.w("MessagingViewModel", "Participants list incomplete or invalid in $chatDocId. Merging current users.")
+                    chatDocRef.set(mapOf("participants" to listOf(currentUserUid, otherUserUid)), SetOptions.merge()).await()
+                }
+            }
+            return true
+        } catch (e: Exception) {
+            Log.e("MessagingViewModel", "Error ensuring chat document $chatDocId exists", e)
+            val errorMsg = if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                "Chat init failed: Check Firestore Rules for chat creation/read."
+            } else { "Chat init failed: ${e.localizedMessage}" }
+            _error.value = errorMsg
+            return false // Indicate failure
+        }
+    }
+
+    // --- MODIFIED LISTENER ---
     private fun listenForMessages() {
         messagesCollectionRef
-            .orderBy("timestamp", Query.Direction.ASCENDING) // Listen for messages in order
-            .limitToLast(50) // Optional: Limit the initial load and updates to recent messages
+            .orderBy("timestamp", Query.Direction.ASCENDING)
+            // .limitToLast(100) // Consider adding limit for performance with large chats
             .addSnapshotListener { snapshots, e ->
                 if (e != null) {
-                    // Log specific Firestore error code if available
-                    if (e is com.google.firebase.firestore.FirebaseFirestoreException) {
-                        Log.w("MessagingViewModel", "Listen failed on messages: ${e.code}", e)
-                        if (e.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
-                            _error.value = "Error loading messages (Permissions). Check Rules & Chat Data."
-                        }
-                    } else {
-                        Log.w("MessagingViewModel", "Listen failed on messages.", e)
-                    }
-                    // Don't overwrite specific upload/send errors with listen errors generally
-                    // _error.value = "Failed to load messages: ${e.localizedMessage}"
+                    Log.w("MessagingViewModel", "Listen failed on messages collection.", e)
+                    if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                        _error.value = "Cannot load messages (Permissions). Check Rules."
+                    } // Avoid overwriting specific action errors
                     return@addSnapshotListener
                 }
 
                 if (snapshots != null) {
                     val loadedMessages = snapshots.documents.mapNotNull { doc ->
                         try {
-                            // Ensure your ChatMessage class correctly handles Timestamps from Firestore
-                            doc.toObject<ChatMessage>()?.copy(messageId = doc.id) // Add doc ID to model
+                            // Assumes ChatMessage class handles all fields correctly
+                            doc.toObject<ChatMessage>()?.copy(messageId = doc.id)
                         } catch (convError: Exception) {
-                            // Log the conversion error in more detail if needed
-                            Log.e("MessagingViewModel", "Error converting message doc ${doc.id}. Data: ${doc.data}", convError)
-                            // Provide a more specific error message if conversion fails often
-                            // _error.value = "Error reading message data. Please try again."
-                            null // Skip messages that fail to parse
+                            Log.e("MessagingViewModel", "Error converting Firestore document ${doc.id} to ChatMessage", convError)
+                            null // Skip messages that fail conversion
                         }
                     }
-                    _messages.value = loadedMessages
-                    // Don't clear general errors on successful message load
-                    // _error.value = null
-                    Log.d("MessagingViewModel", "Loaded/Updated ${loadedMessages.size} messages.")
+                    _messages.value = loadedMessages // Update the UI list first
+                    Log.d("MessagingViewModel", "Listener received ${loadedMessages.size} messages.")
+
+                    // --- Update Last Message Preview based on current listener state ---
+                    // Find the actual last message in the current list.
+                    // If you still have an 'isDeleted' field for UI filtering, use:
+                    // val lastValidMessage = loadedMessages.lastOrNull { !it.isDeleted }
+                    // Otherwise, if direct delete means no 'isDeleted' field matters:
+                    val lastValidMessage = loadedMessages.lastOrNull()
+
+                    // Get the ID of the potential new last message (or null if list is empty)
+                    val newLastMessageId = lastValidMessage?.messageId
+
+                    // Check if the last message has actually changed since the last update we performed
+                    if (newLastMessageId != lastUpdatedPreviewMessageId) {
+                        Log.d("MessagingViewModel", "Last message changed (or initial/clear). Updating preview. Old ID: $lastUpdatedPreviewMessageId, New ID: $newLastMessageId")
+
+                        // Generate the preview and get the timestamp for the chat document
+                        val newPreview = lastValidMessage?.let { generatePreview(it) }
+                        // Use the actual timestamp from the message, or null if no message
+                        // Firestore Timestamps should be handled correctly by 'Any?' in updateChatMetadata
+                        val newTimestamp = lastValidMessage?.timestamp
+
+                        // Update the chat document metadata in a coroutine
+                        viewModelScope.launch(Dispatchers.IO) { // Use IO dispatcher for Firestore write
+                            updateChatMetadata(newPreview, newTimestamp)
+                            // Update the tracking ID *after* the update attempt
+                            // Switch back to Main thread only if necessary for UI updates triggered by this,
+                            // but here we just update the tracking variable.
+                            lastUpdatedPreviewMessageId = newLastMessageId
+                        }
+                    } else {
+                        // Optional: Verbose log if last message ID didn't change
+                        Log.v("MessagingViewModel", "Listener update, but last message ($lastUpdatedPreviewMessageId) hasn't changed. Skipping preview update.")
+                    }
+                    // --- End of Preview Update ---
+
                 } else {
-                    Log.d("MessagingViewModel", "Current messages data: null")
-                    _messages.value = emptyList() // Clear messages if snapshot is null
+                    // Snapshot is null (e.g., initial load failed, permission issue after init, or chat truly empty)
+                    Log.d("MessagingViewModel", "Messages snapshot received as null.");
+                    _messages.value = emptyList() // Clear message list
+
+                    // Check if we need to clear the preview because the list is now confirmed empty/inaccessible
+                    if (lastUpdatedPreviewMessageId != null) {
+                        Log.d("MessagingViewModel", "Messages snapshot null, clearing chat preview metadata.")
+                        viewModelScope.launch(Dispatchers.IO) { // Use IO dispatcher
+                            updateChatMetadata(null, null)
+                            lastUpdatedPreviewMessageId = null // Mark preview as cleared
+                        }
+                    }
                 }
             }
     }
+    // --- END OF MODIFIED LISTENER ---
+
 
     private fun fetchPartnerName() {
+        if (otherUserUid.isBlank()) { // Prevent query with blank ID
+            _partnerName.value = "Invalid User"
+            return
+        }
         viewModelScope.launch {
             try {
-                val docRef = db.collection("users").document(otherUserUid)
-                val snapshot = docRef.get().await()
-                if (snapshot.exists()) {
-                    // Try "username" first, then "name"
-                    val name = snapshot.getString("username") ?: snapshot.getString("name")
-                    if (!name.isNullOrBlank()) { // Check for blank string too
-                        _partnerName.value = name
-                    } else {
-                        // Fallback if name fields are empty/missing
-                        _partnerName.value = "User ${otherUserUid.take(6)}..."
-                        Log.w("MessagingViewModel", "Partner user document $otherUserUid exists but has no 'username' or 'name'.")
-                    }
-                } else {
-                    _partnerName.value = "Unknown User"
-                    Log.w("MessagingViewModel", "Partner user document $otherUserUid does not exist.")
+                val fetchedName = fetchUserName(otherUserUid) // Use helper function
+                _partnerName.value = fetchedName ?: "Unknown User" // Provide fallback
+                if (fetchedName == null) {
+                    Log.w("MessagingViewModel", "Partner user document $otherUserUid not found or has no name fields.")
                 }
             } catch (e: Exception) {
-                if (e is com.google.firebase.firestore.FirebaseFirestoreException && e.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
-                    Log.e("MessagingViewModel", "PERMISSION_DENIED fetching partner name $otherUserUid. Check Rules!", e)
-                    _partnerName.value = "User..." // Reset to default on permission error
+                // Handle specific Firestore exceptions if needed
+                if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                    Log.e("MessagingViewModel", "PERMISSION_DENIED fetching partner name $otherUserUid.", e)
+                    _partnerName.value = "User (Restricted)" // Indicate permission issue subtly
                     _error.value = "Cannot load partner name (Permissions)."
                 } else {
-                    Log.e("MessagingViewModel", "Error fetching partner name for $otherUserUid", e)
-                    _partnerName.value = "User..." // Reset to default on other errors
+                    Log.e("MessagingViewModel", "Error fetching partner name $otherUserUid", e)
+                    _partnerName.value = "User..." // Generic error state
+                    // Avoid setting _error here unless it's critical, listener might set it
                 }
             }
         }
@@ -636,9 +762,15 @@ class MessagingViewModel(
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 if (modelClass.isAssignableFrom(MessagingViewModel::class.java)) {
+                    // Ensure UIDs are actually passed and not blank if possible
+                    if (currentUserUid.isBlank() || otherUserUid.isBlank()) {
+                        Log.e("ViewModelFactory", "Attempting to create MessagingViewModel with blank UIDs!")
+                        // Depending on app structure, either throw or handle this state
+                        // throw IllegalArgumentException("User UIDs cannot be blank")
+                    }
                     return MessagingViewModel(application, currentUserUid, otherUserUid) as T
                 }
-                throw IllegalArgumentException("Unknown ViewModel class")
+                throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
             }
         }
     }

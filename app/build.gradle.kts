@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
+    id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.devtools.ksp") version "2.0.21-1.0.27"
 }
 
@@ -12,7 +13,7 @@ android {
 
     defaultConfig {
         applicationId = "com.zhenbang.otw"
-        minSdk = 35
+        minSdk = 30
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -100,12 +101,14 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.navigation.runtime.android)
     implementation(libs.androidx.benchmark.common)
     implementation(libs.volley)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.material.iconsExtended)
 
     val room_version = "2.6.1"
+    implementation(libs.kotlinx.serialization.json)
     implementation("com.google.firebase:firebase-storage-ktx")
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation("androidx.room:room-runtime:$room_version")

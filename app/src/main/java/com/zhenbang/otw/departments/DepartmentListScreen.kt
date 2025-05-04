@@ -27,6 +27,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.zhenbang.otw.database.Department
 import kotlinx.coroutines.launch
 import android.widget.Toast
+import androidx.compose.ui.platform.LocalConfiguration
 
 // Composable responsible for displaying the workspace content (departments)
 @Composable
@@ -44,9 +45,12 @@ fun WorkspaceContent(
     val coroutineScope = rememberCoroutineScope() // Scope for dialog actions
 
     // Dialog states managed here
-    var showDialog by rememberSaveable { mutableStateOf(false) }
+    var showAddDeptDialog by rememberSaveable { mutableStateOf(false) }
     var departmentName by rememberSaveable { mutableStateOf("") }
     var imageUrl by rememberSaveable { mutableStateOf("") }
+
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp
+    val gridColumnCount = if (screenWidthDp >= 600) 6 else 3
 
     // --- Sorting Logic ---
     val sortedDepartments = remember(userDepartments, isSortAscending) {
@@ -67,34 +71,36 @@ fun WorkspaceContent(
     Box(modifier = modifier.fillMaxSize()) { // Use Box to allow FAB positioning
         if (isGridView) {
             LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
+                columns = GridCells.Fixed(gridColumnCount),
                 modifier = Modifier
                     .padding(8.dp)
             ) {
                 items(sortedDepartments) { department ->
                     Card(
                         modifier = Modifier
-                            .padding(8.dp)
+                            .padding(12.dp)
                             .clickable {
                                 onNavigateToDepartmentDetails(department.departmentId, department.departmentName)
                             },
                         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            AsyncImage(
-                                model = department.imageUrl,
-                                contentDescription = department.departmentName,
+                        Column {
+                            Box(
                                 modifier = Modifier
-                                    .size(120.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                            )
-
+                                    .aspectRatio(1f),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                AsyncImage(
+                                    model = department.imageUrl,
+                                    contentDescription = department.departmentName,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(RoundedCornerShape(12.dp))
+                                )
+                            }
                             Text(
-                                text = department.departmentName, fontSize = 16.sp
+                                text = department.departmentName,
+                                fontSize = 16.sp
                             )
                         }
                     }
@@ -139,7 +145,7 @@ fun WorkspaceContent(
 
         // FAB for adding departments - positioned within the Box
         FloatingActionButton(
-            onClick = { showDialog = true },
+            onClick = { showAddDeptDialog = true },
             modifier = Modifier
                 .align(Alignment.BottomEnd) // Position FAB
                 .padding(16.dp)
@@ -150,9 +156,9 @@ fun WorkspaceContent(
 
 
     // Add Department Dialog (remains the same)
-    if (showDialog) {
+    if (showAddDeptDialog) {
         AlertDialog(
-            onDismissRequest = { showDialog = false },
+            onDismissRequest = { showAddDeptDialog = false },
             title = { Text("Add Department") },
             text = {
                 Column {
@@ -175,7 +181,7 @@ fun WorkspaceContent(
                                 )
                                 departmentName = "" // Clear fields after adding
                                 imageUrl = ""
-                                showDialog = false // Close dialog
+                                showAddDeptDialog = false // Close dialog
                             }
                         } else {
                             Log.e("WorkspaceContent", "Cannot add department: User email is null.")
@@ -192,7 +198,7 @@ fun WorkspaceContent(
                     enabled = departmentName.isNotBlank() // Enable only if name is not blank
                 ) { Text("Add") }
             },
-            dismissButton = { Button(onClick = { showDialog = false }) { Text("Cancel") } }
+            dismissButton = { Button(onClick = { showAddDeptDialog = false }) { Text("Cancel") } }
         )
     }
 }
