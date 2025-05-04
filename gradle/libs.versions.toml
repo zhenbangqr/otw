@@ -14,7 +14,7 @@ androidxBrowser = "1.8.0"
 androidxLifecycle = "2.7.0"
 androidxSecurityCrypto = "1.1.0-alpha06"
 androidxNavigationCompose = "2.7.7"
-loggingInterceptor = "5.0.0-alpha.2"
+loggingInterceptor = "4.12.0"
 navigationRuntimeAndroid = "2.9.0-rc01"
 kotlinxCoroutines = "1.7.3"
 firebaseBom = "33.12.0"
@@ -25,8 +25,11 @@ volley = "1.2.1"
 retrofit = "2.11.0" # Or your desired Retrofit version (e.g., 2.9.0)
 gson = "2.10.1"     # Or your desired Gson version
 coilCompose = "2.6.0" # Seems you defined this below, add it here for consistency
+kotlinxSerializationJson = "1.8.1"
+
 
 [libraries]
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx" } # Version managed by BOM
 firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics-ktx" } # Use ktx version, managed by BOM
@@ -36,7 +39,7 @@ kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "androidxNavigationCompose" }
 androidx-material-iconsExtended = { group = "androidx.compose.material", name = "material-icons-extended" } # BOM managed
 androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "androidxSecurityCrypto" }
-logging-interceptor = { module = "logging.interceptor:logging-interceptor", version.ref = "loggingInterceptor" }
+logging-interceptor = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "loggingInterceptor" }
 openid-appauth = { group = "net.openid", name = "appauth", version.ref = "appauth" }
 androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "androidxBrowser" }
 androidx-lifecycle-viewmodelCompose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "androidxLifecycle" } # Uses androidxLifecycle

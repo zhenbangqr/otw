@@ -58,7 +58,7 @@ import com.zhenbang.otw.data.model.ZpResponse
 import com.zhenbang.otw.messagemodel.ChatMessage // Import data class with new fields
 import com.zhenbang.otw.messagemodel.MessageType
 import com.zhenbang.otw.util.JsonFormatter
-import com.zhenbang.otw.viewmodel.MessagingViewModel // Import ViewModel
+import com.zhenbang.otw.ui.viewmodel.MessagingViewModel // Import ViewModel
 import com.zhenbang.otw.ui.viewmodel.ZpViewModel // For AI part
 import com.zhenbang.otw.util.UiState // For AI part
 import kotlinx.coroutines.delay // Import delay

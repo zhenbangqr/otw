@@ -3,7 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
-    id("org.jetbrains.kotlin.plugin.serialization") // Apply plugin
+    id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.devtools.ksp") version "2.0.21-1.0.27"
 }
 
@@ -108,6 +108,7 @@ dependencies {
     implementation(libs.androidx.material.iconsExtended)
 
     val room_version = "2.6.1"
+    implementation(libs.kotlinx.serialization.json)
     implementation("com.google.firebase:firebase-storage-ktx")
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation("androidx.room:room-runtime:$room_version")
