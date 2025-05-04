@@ -11,4 +11,6 @@ object Routes {
 
     // Helper function to create the route with the argument filled in
     fun messagingWithUser(userId: String) = "messaging/$userId"
+
+    const val HISTORY = "history"
 }

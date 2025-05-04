@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
     id("org.jetbrains.kotlin.plugin.serialization") // Apply plugin
+    id("com.google.devtools.ksp")
 }
 
 android {
@@ -48,6 +49,7 @@ android {
 }
 
 dependencies {
+
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.material.iconsExtended)
     implementation(libs.androidx.security.crypto)
@@ -92,4 +94,14 @@ dependencies {
     implementation ("com.squareup.retrofit2:retrofit:2.9.0")
     implementation ("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation ("com.squareup.okhttp3:logging-interceptor:4.11.0")
+
+
+    implementation("androidx.room:room-runtime:2.7.1")
+    annotationProcessor("androidx.room:room-compiler:2.7.1")
+    // To use Kotlin annotation processing tool (kapt)
+    ksp("androidx.room:room-compiler:2.7.1")
+    // To use Kotlin Symbol Processing (KSP) - Recommended
+
+    // optional - Kotlin Extensions and Coroutines support for Room
+    implementation("androidx.room:room-ktx:2.7.1")
 }

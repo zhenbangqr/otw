@@ -28,6 +28,7 @@ import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.messaging.FirebaseMessaging // Import FirebaseMessaging
+import com.zhenbang.otw.ui.screen.HistoryScreen
 import com.zhenbang.otw.ui.theme.OnTheWayTheme
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -122,6 +123,12 @@ class MainActivity : ComponentActivity() {
                                             Log.e("Navigation", "User ID argument missing for messaging route")
                                         }
                                     }
+
+                                    composable(route = Routes.HISTORY) { // Use the chosen route string ("history")
+                                        // Call your HistoryScreen composable function
+                                        HistoryScreen(navController = navController)
+                                    }
+
                                     // Add other destinations here if needed
                                 } // --- End NavHost ---
                             }

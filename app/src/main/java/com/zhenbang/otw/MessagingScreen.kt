@@ -66,14 +66,16 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat // For displaying selected dates
 import java.util.* // For Date, Calendar, Locale
 import java.util.concurrent.TimeUnit // For time formatting
+import com.zhenbang.otw.ui.viewmodel.ZpViewModelFactory // <<< RE-ADD
 
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class) // Add ExperimentalFoundationApi
+@OptIn(
+    ExperimentalMaterial3Api::class,
+    ExperimentalFoundationApi::class
+) // Add ExperimentalFoundationApi
 @Composable
 fun MessagingScreen(
     navController: NavController,
     userIdToChatWith: String,
-    zpViewModel: ZpViewModel = viewModel() // Keep for AI features if used
 ) {
 
     val currentUserUid = FirebaseAuth.getInstance().currentUser?.uid
@@ -89,8 +91,15 @@ fun MessagingScreen(
     }
 
     // --- ViewModel Setup ---
+
+    // MessagingViewModel for chat
     val viewModel: MessagingViewModel = viewModel(
         factory = MessagingViewModel.provideFactory(application, currentUserUid, userIdToChatWith)
+    )
+
+    // ZpViewModel for AI Summarization and History Saving
+    val zpViewModel: ZpViewModel = viewModel(
+        factory = ZpViewModelFactory(application) // Ensure this factory exists
     )
 
     // --- State from ViewModel ---
@@ -139,30 +148,73 @@ fun MessagingScreen(
     var showJsonDialog by remember { mutableStateOf(false) }
     var generatedJson by remember { mutableStateOf("") }
 
+    // --- AI State Collection
+    val apiState by zpViewModel.apiDataState.collectAsStateWithLifecycle()
 
     // --- Permissions Handling ---
-    val imagePermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_IMAGES else Manifest.permission.READ_EXTERNAL_STORAGE
-    var hasImagePermission by remember { mutableStateOf(ContextCompat.checkSelfPermission(context, imagePermission) == PackageManager.PERMISSION_GRANTED) }
-    val imagePermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-        hasImagePermission = isGranted; if (!isGranted) Toast.makeText(context, "Image permission needed", Toast.LENGTH_SHORT).show()
+    val imagePermission =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_IMAGES else Manifest.permission.READ_EXTERNAL_STORAGE
+    var hasImagePermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context,
+                imagePermission
+            ) == PackageManager.PERMISSION_GRANTED
+        )
     }
+    val imagePermissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            hasImagePermission = isGranted; if (!isGranted) Toast.makeText(
+            context,
+            "Image permission needed",
+            Toast.LENGTH_SHORT
+        ).show()
+        }
 
     val audioPermission = Manifest.permission.RECORD_AUDIO
-    var hasAudioPermission by remember { mutableStateOf(ContextCompat.checkSelfPermission(context, audioPermission) == PackageManager.PERMISSION_GRANTED) }
-    val audioPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-        hasAudioPermission = isGranted; if (!isGranted) Toast.makeText(context, "Audio permission needed", Toast.LENGTH_SHORT).show()
+    var hasAudioPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context,
+                audioPermission
+            ) == PackageManager.PERMISSION_GRANTED
+        )
     }
+    val audioPermissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            hasAudioPermission = isGranted; if (!isGranted) Toast.makeText(
+            context,
+            "Audio permission needed",
+            Toast.LENGTH_SHORT
+        ).show()
+        }
 
-    val locationPermissions = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-    var hasLocationPermission by remember { mutableStateOf(locationPermissions.any { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }) }
-    val locationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-        hasLocationPermission = permissions.values.any { it }
-        if (hasLocationPermission) viewModel.sendCurrentLocation() else Toast.makeText(context, "Location permission needed", Toast.LENGTH_SHORT).show()
+    val locationPermissions = arrayOf(
+        Manifest.permission.ACCESS_FINE_LOCATION,
+        Manifest.permission.ACCESS_COARSE_LOCATION
+    )
+    var hasLocationPermission by remember {
+        mutableStateOf(locationPermissions.any {
+            ContextCompat.checkSelfPermission(
+                context,
+                it
+            ) == PackageManager.PERMISSION_GRANTED
+        })
     }
+    val locationPermissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+            hasLocationPermission = permissions.values.any { it }
+            if (hasLocationPermission) viewModel.sendCurrentLocation() else Toast.makeText(
+                context,
+                "Location permission needed",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
 
-    val imagePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
-        if (uri != null) previewImageUri = uri else Log.d("ImagePicker", "No image selected")
-    }
+    val imagePickerLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
+            if (uri != null) previewImageUri = uri else Log.d("ImagePicker", "No image selected")
+        }
 
 
     // --- Audio Playback Logic --- (Keep your existing robust implementation)
@@ -179,8 +231,14 @@ fun MessagingScreen(
     fun playAudio(url: String, messageId: String) {
         if (currentlyPlayingMessageId == messageId) { // Tap again to stop
             playbackJob?.cancel()
-            try { mediaPlayer.stop(); mediaPlayer.reset() } catch (e: Exception) { Log.w("MediaPlayer", "Stop/Reset failed", e)}
-            finally { currentlyPlayingMessageId = null; currentAudioPosition = 0L; currentAudioDuration = 0L }
+            try {
+                mediaPlayer.stop(); mediaPlayer.reset()
+            } catch (e: Exception) {
+                Log.w("MediaPlayer", "Stop/Reset failed", e)
+            } finally {
+                currentlyPlayingMessageId = null; currentAudioPosition = 0L; currentAudioDuration =
+                    0L
+            }
             return
         }
         try {
@@ -196,31 +254,48 @@ fun MessagingScreen(
                 currentlyPlayingMessageId = messageId
                 playbackJob = playbackScope.launch { // Coroutine to update progress
                     while (mp.isPlaying && currentlyPlayingMessageId == messageId) {
-                        try { currentAudioPosition = mp.currentPosition.toLong() }
-                        catch (e: IllegalStateException) { Log.w("MediaPlayer", "Get position failed", e); break }
+                        try {
+                            currentAudioPosition = mp.currentPosition.toLong()
+                        } catch (e: IllegalStateException) {
+                            Log.w("MediaPlayer", "Get position failed", e); break
+                        }
                         delay(100) // Update interval
                     }
                     // Update position one last time after stopping/completion
-                    if(currentlyPlayingMessageId == messageId && !mp.isPlaying) {
-                        try { currentAudioPosition = mp.currentPosition.toLong() } catch (e: IllegalStateException) { currentAudioPosition = currentAudioDuration}
+                    if (currentlyPlayingMessageId == messageId && !mp.isPlaying) {
+                        try {
+                            currentAudioPosition = mp.currentPosition.toLong()
+                        } catch (e: IllegalStateException) {
+                            currentAudioPosition = currentAudioDuration
+                        }
                     }
                 }
             }
             mediaPlayer.setOnCompletionListener { mp ->
                 playbackJob?.cancel()
                 if (currentlyPlayingMessageId == messageId) {
-                    currentlyPlayingMessageId = null; currentAudioPosition = 0L; // Keep duration? Maybe reset to 0.
+                    currentlyPlayingMessageId = null; currentAudioPosition =
+                        0L; // Keep duration? Maybe reset to 0.
                 }
-                try { mp.reset() } catch (e: Exception) { Log.e("MediaPlayer", "Reset on completion failed", e) }
+                try {
+                    mp.reset()
+                } catch (e: Exception) {
+                    Log.e("MediaPlayer", "Reset on completion failed", e)
+                }
             }
             mediaPlayer.setOnErrorListener { mp, _, _ ->
                 Log.e("MediaPlayer", "Playback error")
                 Toast.makeText(context, "Error playing audio", Toast.LENGTH_SHORT).show()
                 playbackJob?.cancel()
                 if (currentlyPlayingMessageId == messageId) {
-                    currentlyPlayingMessageId = null; currentAudioPosition = 0L; currentAudioDuration = 0L
+                    currentlyPlayingMessageId = null; currentAudioPosition =
+                        0L; currentAudioDuration = 0L
                 }
-                try { mp.reset() } catch (e: Exception) { Log.e("MediaPlayer", "Reset on error failed", e) }
+                try {
+                    mp.reset()
+                } catch (e: Exception) {
+                    Log.e("MediaPlayer", "Reset on error failed", e)
+                }
                 true // Indicate error handled
             }
         } catch (e: Exception) {
@@ -228,17 +303,24 @@ fun MessagingScreen(
             Toast.makeText(context, "Cannot play audio", Toast.LENGTH_SHORT).show()
             playbackJob?.cancel()
             if (currentlyPlayingMessageId == messageId) {
-                currentlyPlayingMessageId = null; currentAudioPosition = 0L; currentAudioDuration = 0L
+                currentlyPlayingMessageId = null; currentAudioPosition = 0L; currentAudioDuration =
+                    0L
             }
-            try { mediaPlayer.reset() } catch (re: Exception) { /* Ignore reset error */ }
+            try {
+                mediaPlayer.reset()
+            } catch (re: Exception) { /* Ignore reset error */
+            }
         }
     }
 
 
     fun stopAudio() {
         playbackJob?.cancel()
-        try { if (mediaPlayer.isPlaying) mediaPlayer.stop(); mediaPlayer.reset() }
-        catch (e: IllegalStateException) { Log.e("MediaPlayer", "Stop/Reset error", e) }
+        try {
+            if (mediaPlayer.isPlaying) mediaPlayer.stop(); mediaPlayer.reset()
+        } catch (e: IllegalStateException) {
+            Log.e("MediaPlayer", "Stop/Reset error", e)
+        }
         currentlyPlayingMessageId = null; currentAudioPosition = 0L; currentAudioDuration = 0L
     }
 
@@ -249,10 +331,12 @@ fun MessagingScreen(
     // --- Effects ---
     LaunchedEffect(messages.size, listState) {
         if (messages.isNotEmpty()) {
-            val lastVisibleItemIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+            val lastVisibleItemIndex =
+                listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
             val totalItems = listState.layoutInfo.totalItemsCount
             // Scroll to bottom if near the bottom or if it's the initial load/new message from current user
-            val shouldScroll = lastVisibleItemIndex == -1 || lastVisibleItemIndex >= totalItems - 5 || messages.lastOrNull()?.senderId == currentUserUid
+            val shouldScroll =
+                lastVisibleItemIndex == -1 || lastVisibleItemIndex >= totalItems - 5 || messages.lastOrNull()?.senderId == currentUserUid
             if (shouldScroll && totalItems > 0) {
                 coroutineScope.launch {
                     listState.animateScrollToItem(index = totalItems - 1)
@@ -263,14 +347,19 @@ fun MessagingScreen(
 
     // --- JSON Generation Logic (Keep if using AI feature) ---
     fun generateJsonAndShowDialog(startMillis: Long?, endMillis: Long?) {
-        if (startMillis == null || endMillis == null) { Toast.makeText(context, "Invalid date range", Toast.LENGTH_SHORT).show(); return }
+        if (startMillis == null || endMillis == null) {
+            Toast.makeText(context, "Invalid date range", Toast.LENGTH_SHORT).show(); return
+        }
         // Store the confirmed dates (useful for display)
         selectedStartDateMillis = startMillis
         selectedEndDateMillis = endMillis
 
         val adjustedEndDateMillis = Calendar.getInstance().apply {
             timeInMillis = endMillis
-            set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59); set(Calendar.SECOND, 59); set(Calendar.MILLISECOND, 999)
+            set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59); set(Calendar.SECOND, 59); set(
+            Calendar.MILLISECOND,
+            999
+        )
         }.timeInMillis
 
         val filteredMessages = messages.filter { msg ->
@@ -279,15 +368,18 @@ fun MessagingScreen(
         }
 
         if (filteredMessages.isEmpty()) {
-            Toast.makeText(context, "No messages found in timeframe to analyze.", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "No messages found in timeframe to analyze.", Toast.LENGTH_LONG)
+                .show()
             Log.w("JSONExport", "No messages found for AI analysis in timeframe.")
             return
         }
 
         try {
-            val jsonResult = JsonFormatter.formatMessagesToJson(filteredMessages) // Use your formatter
+            val jsonResult =
+                JsonFormatter.formatMessagesToJson(filteredMessages) // Use your formatter
             if (jsonResult.isBlank() || jsonResult == "[]") {
-                Toast.makeText(context, "Failed to generate analysis data.", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "Failed to generate analysis data.", Toast.LENGTH_LONG)
+                    .show()
                 Log.e("JSONExport", "JsonFormatter returned blank/empty array.")
                 return
             }
@@ -316,6 +408,10 @@ fun MessagingScreen(
                     IconButton(onClick = { showDateRangePicker = true }) {
                         Icon(Icons.Filled.DateRange, contentDescription = "Select Timeframe for AI")
                     }
+                    // History Button
+                    IconButton(onClick = { navController.navigate("history") }) { // Use your actual route name
+                        Icon(Icons.Filled.History, contentDescription = "View Summary History")
+                    }
                 }
             )
         }
@@ -331,9 +427,15 @@ fun MessagingScreen(
             if (selectedStartDateMillis != null && selectedEndDateMillis != null) {
                 val formatter = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
                 Text(
-                    text = "Analysis: ${formatter.format(Date(selectedStartDateMillis!!))} - ${formatter.format(Date(selectedEndDateMillis!!))}",
+                    text = "Analysis: ${formatter.format(Date(selectedStartDateMillis!!))} - ${
+                        formatter.format(
+                            Date(selectedEndDateMillis!!)
+                        )
+                    }",
                     style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp).align(Alignment.CenterHorizontally)
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .align(Alignment.CenterHorizontally)
                 )
             }
 
@@ -346,7 +448,12 @@ fun MessagingScreen(
                 Snackbar( // Use Snackbar for temporary errors?
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                     action = { TextButton(onClick = { /* viewModel.clearError() */ }) { Text("Dismiss") } } // Need clearError in VM
-                ) { Text(text = errText, color=MaterialTheme.colorScheme.onErrorContainer) } // Check Snackbar colors
+                ) {
+                    Text(
+                        text = errText,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                } // Check Snackbar colors
 
                 // Auto-clear error after a delay
                 LaunchedEffect(errText) {
@@ -367,11 +474,14 @@ fun MessagingScreen(
             ) {
                 items(
                     items = messages,
-                    key = { message -> message.messageId ?: message.hashCode() } // Use ID or fallback
+                    key = { message ->
+                        message.messageId ?: message.hashCode()
+                    } // Use ID or fallback
                 ) { message ->
                     val isCurrentUserMessage = message.senderId == currentUserUid
                     val isPlaying = message.messageId == currentlyPlayingMessageId
-                    val displayDuration = if (isPlaying) currentAudioDuration else (message.audioDurationMillis ?: 0L)
+                    val displayDuration =
+                        if (isPlaying) currentAudioDuration else (message.audioDurationMillis ?: 0L)
                     val displayPosition = if (isPlaying) currentAudioPosition else 0L
 
                     // Box to handle context menu trigger area
@@ -384,7 +494,12 @@ fun MessagingScreen(
                             totalDurationMillis = displayDuration,
                             formatTime = ::formatTimeMillis,
                             onImageClick = { imageUrl -> imageToShowFullScreen = imageUrl },
-                            onPlayAudioClick = { audioUrl -> playAudio(audioUrl, message.messageId ?: "") },
+                            onPlayAudioClick = { audioUrl ->
+                                playAudio(
+                                    audioUrl,
+                                    message.messageId ?: ""
+                                )
+                            },
                             modifier = Modifier.combinedClickable(
                                 onClick = { /* No action on single click for now */ },
                                 onLongClick = {
@@ -406,7 +521,10 @@ fun MessagingScreen(
                             // Reply
                             DropdownMenuItem(
                                 text = { Text("Reply") },
-                                onClick = { viewModel.selectMessageForReply(message); showContextMenu = false },
+                                onClick = {
+                                    viewModel.selectMessageForReply(message); showContextMenu =
+                                    false
+                                },
                                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.Reply, "Reply") }
                             )
 
@@ -414,7 +532,10 @@ fun MessagingScreen(
                             if (isCurrentUserMessage && !message.isDeleted && message.messageType == MessageType.TEXT) {
                                 DropdownMenuItem(
                                     text = { Text("Edit") },
-                                    onClick = { viewModel.selectMessageForEdit(message); showContextMenu = false },
+                                    onClick = {
+                                        viewModel.selectMessageForEdit(message); showContextMenu =
+                                        false
+                                    },
                                     leadingIcon = { Icon(Icons.Filled.Edit, "Edit") }
                                 )
                             }
@@ -423,13 +544,24 @@ fun MessagingScreen(
                             if (isCurrentUserMessage && !message.isDeleted) {
                                 HorizontalDivider()
                                 DropdownMenuItem(
-                                    text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                                    text = {
+                                        Text(
+                                            "Delete",
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    },
                                     onClick = {
                                         messageToDelete = message // Store message for confirmation
                                         showDeleteConfirmDialog = true
                                         showContextMenu = false
                                     },
-                                    leadingIcon = { Icon(Icons.Filled.Delete, "Delete", tint = MaterialTheme.colorScheme.error) }
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Filled.Delete,
+                                            "Delete",
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    }
                                 )
                             }
                         }
@@ -498,7 +630,9 @@ fun MessagingScreen(
                         showSendButton = showSendButton, // <-- Pass the new state
                         onAttachImageClick = {
                             // Check permission and launch picker
-                            if (hasImagePermission) imagePickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            if (hasImagePermission) imagePickerLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
                             else imagePermissionLauncher.launch(imagePermission)
                         },
                         isRecording = isRecording,
@@ -540,7 +674,9 @@ fun MessagingScreen(
                 ) { Text("Delete", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirmDialog = false; messageToDelete = null }) { Text("Cancel") }
+                TextButton(onClick = {
+                    showDeleteConfirmDialog = false; messageToDelete = null
+                }) { Text("Cancel") }
             }
         )
     }
@@ -568,33 +704,129 @@ fun MessagingScreen(
                     // Enable button only when a valid range is selected
                     enabled = dateRangePickerState.selectedStartDateMillis != null &&
                             dateRangePickerState.selectedEndDateMillis != null &&
-                            (dateRangePickerState.selectedEndDateMillis ?: 0) >= (dateRangePickerState.selectedStartDateMillis ?: 0)
+                            (dateRangePickerState.selectedEndDateMillis
+                                ?: 0) >= (dateRangePickerState.selectedStartDateMillis ?: 0)
                 ) { Text("Confirm Timeframe") }
             },
-            dismissButton = { TextButton(onClick = { showDateRangePicker = false }) { Text("Cancel") } }
+            dismissButton = {
+                TextButton(onClick = {
+                    showDateRangePicker = false
+                }) { Text("Cancel") }
+            }
         ) { DateRangePicker(state = dateRangePickerState) } // Material 3 DateRangePicker
     }
 
 
-    // JSON AI Dialog (Keep if needed)
     if (showJsonDialog) {
-        val apiState by zpViewModel.apiDataState.collectAsStateWithLifecycle() // Assuming zpViewModel is for AI
-        AlertDialog(
-            onDismissRequest = { showJsonDialog = false; zpViewModel.resetState() }, // Reset AI state on dismiss
-            title = { Text("AI Analysis Input") },
-            text = { AiDialogContent(apiState = apiState, jsonToSend = generatedJson) }, // Your content composable for AI state
-            confirmButton = { // Buttons change based on AI state (Idle, Loading, Success, Error)
-                val isLoading = apiState is UiState.Loading
-                val buttonText: String; val onClickAction: () -> Unit; val isEnabled: Boolean
-                when (apiState) {
-                    is UiState.Idle -> { buttonText = "Send to AI"; onClickAction = { zpViewModel.fetchDataFromApi(generatedJson) }; isEnabled = true }
-                    is UiState.Loading -> { buttonText = "Sending..."; onClickAction = {}; isEnabled = false }
-                    is UiState.Success -> { buttonText = "Done"; onClickAction = { showJsonDialog = false; zpViewModel.resetState() }; isEnabled = true } // Close on Done
-                    is UiState.Error -> { buttonText = "Retry"; onClickAction = { zpViewModel.fetchDataFromApi(generatedJson) }; isEnabled = true }
+        // apiState is collected above
+
+        // State to hold response text when success, needed for Save button
+        var responseTextForSave by remember(apiState) {
+            mutableStateOf(
+                if (apiState is UiState.Success) {
+                    (apiState as UiState.Success<ZpResponse>).data.choices?.firstOrNull()?.message?.content
+                } else {
+                    null
                 }
-                TextButton(onClick = onClickAction, enabled = isEnabled) { Text(buttonText) }
+            )
+        }
+
+        AlertDialog(
+            onDismissRequest = {
+                showJsonDialog = false
+                zpViewModel.resetState() // Reset on dismiss
             },
-            dismissButton = { TextButton(onClick = { showJsonDialog = false; zpViewModel.resetState() }) { Text("Close") } }
+            title = { Text("AI Analysis") },
+            text = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 150.dp, max = 400.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    when (val state = apiState) {
+                        is UiState.Idle -> {
+                            LazyColumn {
+                                item { Text("JSON to send:", fontWeight = FontWeight.Bold) }
+                                item { Spacer(Modifier.height(8.dp)) }
+                                item { Text(generatedJson) } // Display the generated JSON
+                            }
+                        }
+
+                        is UiState.Loading -> {
+                            CircularProgressIndicator()
+                        }
+
+                        is UiState.Success -> {
+                            val textToShow = responseTextForSave ?: "No content in response."
+                            LazyColumn {
+                                item { Text("AI Response:", fontWeight = FontWeight.Bold) }
+                                item { Spacer(Modifier.height(8.dp)) }
+                                item { Text(textToShow) }
+                            }
+                        }
+
+                        is UiState.Error -> {
+                            Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Row { // Use Row to layout buttons
+                    // Conditionally show Send/Retry button
+                    when (apiState) {
+                        is UiState.Idle -> {
+                            TextButton(onClick = { zpViewModel.fetchDataFromApi(generatedJson) }) {
+                                Text("Send to AI")
+                            }
+                        }
+
+                        is UiState.Loading -> {
+                            TextButton(onClick = {}, enabled = false) { Text("Sending...") }
+                        }
+
+                        is UiState.Success -> { /* No primary button here */
+                        }
+
+                        is UiState.Error -> {
+                            TextButton(onClick = { zpViewModel.fetchDataFromApi(generatedJson) }) {
+                                Text("Retry")
+                            }
+                        }
+                    }
+
+                    // Add Save Button ONLY on Success
+                    if (apiState is UiState.Success && !responseTextForSave.isNullOrBlank()) {
+                        Spacer(Modifier.width(8.dp)) // Add space
+                        Button( // Filled button for Save
+                            onClick = {
+                                if (selectedStartDateMillis != null && selectedEndDateMillis != null && generatedJson.isNotBlank()) {
+                                    zpViewModel.saveSummaryToHistory(
+                                        startMillis = selectedStartDateMillis,
+                                        endMillis = selectedEndDateMillis,
+                                        requestJson = generatedJson,
+                                        aiResponseText = responseTextForSave!! // Safe due to outer check
+                                    )
+                                    showJsonDialog = false // Close after save
+                                    zpViewModel.resetState()
+                                } else {
+                                    Log.w("SaveAction", "Missing data for saving history.")
+                                    Toast.makeText(context, "Could not save.", Toast.LENGTH_SHORT)
+                                        .show()
+                                }
+                            }
+                        ) { Text("Save") }
+                    }
+                }
+            },
+            dismissButton = {
+                // Close button is always visible
+                TextButton(onClick = {
+                    showJsonDialog = false
+                    zpViewModel.resetState()
+                }) { Text("Close") }
+            }
         )
     }
 
@@ -650,17 +882,28 @@ fun MessageBubble(
                             .background(
                                 MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
                                 // Slightly different shape for reply part
-                                RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 2.dp, bottomEnd = 2.dp)
+                                RoundedCornerShape(
+                                    topStart = 4.dp,
+                                    topEnd = 4.dp,
+                                    bottomStart = 2.dp,
+                                    bottomEnd = 2.dp
+                                )
                             )
                             .padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // Vertical indicator bar
-                        Spacer(modifier = Modifier.width(3.dp).height(30.dp).background(MaterialTheme.colorScheme.primary))
+                        Spacer(
+                            modifier = Modifier
+                                .width(3.dp)
+                                .height(30.dp)
+                                .background(MaterialTheme.colorScheme.primary)
+                        )
                         Spacer(modifier = Modifier.width(8.dp))
                         Column {
                             Text(
-                                text = message.repliedToSenderName ?: "User", // Use name from message data
+                                text = message.repliedToSenderName
+                                    ?: "User", // Use name from message data
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
                                 color = contentColor // Inherit content color
@@ -679,7 +922,10 @@ fun MessageBubble(
 
                 // --- Main Content or Deleted Placeholder ---
                 if (message.isDeleted) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    ) {
                         Icon(
                             Icons.Filled.Block, // Or use DoNotDisturbOn or RemoveCircleOutline
                             contentDescription = "Deleted",
@@ -702,7 +948,7 @@ fun MessageBubble(
                                 Text(
                                     text = message.text ?: "",
                                     color = contentColor,
-                                    modifier = Modifier.padding(end = if(message.isEdited) 4.dp else 0.dp) // Padding before edited tag
+                                    modifier = Modifier.padding(end = if (message.isEdited) 4.dp else 0.dp) // Padding before edited tag
                                 )
                                 // Show (edited) tag if applicable
                                 if (message.isEdited) {
@@ -715,14 +961,19 @@ fun MessageBubble(
                                 }
                             }
                         }
+
                         MessageType.IMAGE -> {
                             Column { // Use column if image can have text below/overlayed
                                 if (message.imageUrl != null) {
                                     AsyncImage(
-                                        model = ImageRequest.Builder(context).data(message.imageUrl).crossfade(true).build(),
+                                        model = ImageRequest.Builder(context).data(message.imageUrl)
+                                            .crossfade(true).build(),
                                         contentDescription = "Sent image",
                                         modifier = Modifier
-                                            .sizeIn(maxWidth = 240.dp, maxHeight = 300.dp) // Constrain image size
+                                            .sizeIn(
+                                                maxWidth = 240.dp,
+                                                maxHeight = 300.dp
+                                            ) // Constrain image size
                                             .padding(bottom = if (message.isEdited) 2.dp else 0.dp) // Padding if edited tag below
                                             .clip(MaterialTheme.shapes.small) // Clip image corners
                                             .clickable { onImageClick(message.imageUrl) },
@@ -730,8 +981,12 @@ fun MessageBubble(
                                     )
                                 } else {
                                     // Placeholder for missing image?
-                                    Box(modifier = Modifier.size(100.dp).background(MaterialTheme.colorScheme.surfaceVariant)) {
-                                        Text("?", modifier=Modifier.align(Alignment.Center))
+                                    Box(
+                                        modifier = Modifier
+                                            .size(100.dp)
+                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    ) {
+                                        Text("?", modifier = Modifier.align(Alignment.Center))
                                     }
                                 }
                                 // Add edited tag below image if needed
@@ -740,17 +995,27 @@ fun MessageBubble(
                                         "(edited)",
                                         fontSize = 10.sp,
                                         color = contentColor.copy(alpha = 0.7f),
-                                        modifier = Modifier.align(Alignment.End).padding(top=2.dp)
+                                        modifier = Modifier
+                                            .align(Alignment.End)
+                                            .padding(top = 2.dp)
                                     )
                                 }
                             }
                         }
+
                         MessageType.AUDIO -> {
-                            Column(modifier = Modifier.widthIn(min = 120.dp, max = 250.dp)) { // Constrain audio width
+                            Column(
+                                modifier = Modifier.widthIn(
+                                    min = 120.dp,
+                                    max = 250.dp
+                                )
+                            ) { // Constrain audio width
                                 Row(
-                                    modifier = Modifier.fillMaxWidth().clickable(enabled = message.audioUrl != null) {
-                                        message.audioUrl?.let { onPlayAudioClick(it) }
-                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable(enabled = message.audioUrl != null) {
+                                            message.audioUrl?.let { onPlayAudioClick(it) }
+                                        },
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
@@ -761,7 +1026,9 @@ fun MessageBubble(
                                     Spacer(modifier = Modifier.width(8.dp))
                                     LinearProgressIndicator(
                                         progress = { if (totalDurationMillis > 0) currentPositionMillis.toFloat() / totalDurationMillis.toFloat() else 0f },
-                                        modifier = Modifier.weight(1f).height(6.dp),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(6.dp),
                                         strokeCap = StrokeCap.Round,
                                         trackColor = MaterialTheme.colorScheme.surfaceVariant, // M3 track color
                                         color = MaterialTheme.colorScheme.primary // M3 progress color
@@ -773,68 +1040,129 @@ fun MessageBubble(
                                     horizontalArrangement = Arrangement.End // Align to end
                                 ) {
                                     if (message.isEdited) { // Unlikely for audio, but check
-                                        Text("(edited)", fontSize = 10.sp, color = contentColor.copy(alpha = 0.7f))
+                                        Text(
+                                            "(edited)",
+                                            fontSize = 10.sp,
+                                            color = contentColor.copy(alpha = 0.7f)
+                                        )
                                         Spacer(Modifier.width(4.dp))
                                     }
                                     Text(
-                                        text = "${formatTime(currentPositionMillis)} / ${formatTime(totalDurationMillis)}",
+                                        text = "${formatTime(currentPositionMillis)} / ${
+                                            formatTime(
+                                                totalDurationMillis
+                                            )
+                                        }",
                                         fontSize = 12.sp,
                                         color = contentColor.copy(alpha = 0.7f)
                                     )
                                 }
                             }
                         }
+
                         MessageType.LOCATION -> {
                             Column(
-                                modifier = Modifier.width(200.dp).clickable(enabled = message.location != null) {
-                                    message.location?.let { geoPoint ->
-                                        val lat = geoPoint.latitude; val lon = geoPoint.longitude
-                                        val name = Uri.encode(message.locationName ?: "Shared Location")
-                                        val uri = Uri.parse("geo:$lat,$lon?q=$lat,$lon($name)")
-                                        val mapIntent = Intent(Intent.ACTION_VIEW, uri)
-                                        // Try Google Maps first, then generic
-                                        mapIntent.setPackage("com.google.android.apps.maps")
-                                        try { context.startActivity(mapIntent) }
-                                        catch (e: Exception) {
-                                            try { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
-                                            catch (e2: Exception) { Toast.makeText(context, "No map app found", Toast.LENGTH_SHORT).show()}
+                                modifier = Modifier
+                                    .width(200.dp)
+                                    .clickable(enabled = message.location != null) {
+                                        message.location?.let { geoPoint ->
+                                            val lat = geoPoint.latitude;
+                                            val lon = geoPoint.longitude
+                                            val name = Uri.encode(
+                                                message.locationName ?: "Shared Location"
+                                            )
+                                            val uri = Uri.parse("geo:$lat,$lon?q=$lat,$lon($name)")
+                                            val mapIntent = Intent(Intent.ACTION_VIEW, uri)
+                                            // Try Google Maps first, then generic
+                                            mapIntent.setPackage("com.google.android.apps.maps")
+                                            try {
+                                                context.startActivity(mapIntent)
+                                            } catch (e: Exception) {
+                                                try {
+                                                    context.startActivity(
+                                                        Intent(
+                                                            Intent.ACTION_VIEW,
+                                                            uri
+                                                        )
+                                                    )
+                                                } catch (e2: Exception) {
+                                                    Toast.makeText(
+                                                        context,
+                                                        "No map app found",
+                                                        Toast.LENGTH_SHORT
+                                                    ).show()
+                                                }
+                                            }
                                         }
                                     }
-                                }
                             ) {
                                 // Static Map Image
                                 if (message.staticMapUrl != null) {
                                     AsyncImage(
                                         model = message.staticMapUrl,
                                         contentDescription = "Map preview: ${message.locationName}",
-                                        modifier = Modifier.fillMaxWidth().height(120.dp).clip(MaterialTheme.shapes.small),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(120.dp)
+                                            .clip(MaterialTheme.shapes.small),
                                         contentScale = ContentScale.Crop // Crop map to fit aspect ratio
                                     )
                                 } else {
                                     // Placeholder Map Error Box
-                                    Box(modifier = Modifier.fillMaxWidth().height(120.dp).background(MaterialTheme.colorScheme.surfaceVariant)) {
-                                        Icon(Icons.Filled.Map, "Map Error", modifier = Modifier.align(Alignment.Center).size(40.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(120.dp)
+                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    ) {
+                                        Icon(
+                                            Icons.Filled.Map,
+                                            "Map Error",
+                                            modifier = Modifier
+                                                .align(Alignment.Center)
+                                                .size(40.dp)
+                                        )
                                     }
                                 }
                                 Spacer(modifier = Modifier.height(4.dp))
                                 // Location Name Row
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp)) {
-                                    Icon(Icons.Filled.LocationOn, null, tint = contentColor.copy(alpha = 0.8f), modifier = Modifier.size(16.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 4.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Filled.LocationOn,
+                                        null,
+                                        tint = contentColor.copy(alpha = 0.8f),
+                                        modifier = Modifier.size(16.dp)
+                                    )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
                                         text = message.locationName ?: "[Shared Location]",
-                                        color = contentColor, style = MaterialTheme.typography.bodySmall,
-                                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f, fill=false) // Take needed space
+                                        color = contentColor,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(
+                                            1f,
+                                            fill = false
+                                        ) // Take needed space
                                     )
                                     if (message.isEdited) { // Unlikely for location
                                         Spacer(Modifier.width(4.dp))
-                                        Text("(edited)", fontSize = 10.sp, color = contentColor.copy(alpha = 0.7f))
+                                        Text(
+                                            "(edited)",
+                                            fontSize = 10.sp,
+                                            color = contentColor.copy(alpha = 0.7f)
+                                        )
                                     }
                                 }
                             }
                         }
-                        null -> { Text("[Unsupported message]", color = contentColor) }
+
+                        null -> {
+                            Text("[Unsupported message]", color = contentColor)
+                        }
                     } // End when
                 } // End else (!isDeleted)
             } // End Column
@@ -861,7 +1189,8 @@ fun MessageInput(
     canRecord: Boolean,
     canSendLocation: Boolean
 ) {
-    val disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) // M3 standard disabled alpha
+    val disabledContentColor =
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) // M3 standard disabled alpha
     val defaultContentColor = LocalContentColor.current // Use LocalContentColor for enabled tint
 
     Surface(shadowElevation = 4.dp, tonalElevation = 1.dp) {
@@ -873,22 +1202,47 @@ fun MessageInput(
         ) {
             if (isRecording) {
                 // Recording Indicator UI
-                Icon(Icons.Filled.Mic, "Recording", tint = Color.Red, modifier = Modifier.padding(12.dp)) // Consistent padding
-                Text("Recording...", modifier = Modifier.weight(1f).padding(horizontal = 8.dp).align(Alignment.CenterVertically))
+                Icon(
+                    Icons.Filled.Mic,
+                    "Recording",
+                    tint = Color.Red,
+                    modifier = Modifier.padding(12.dp)
+                ) // Consistent padding
+                Text(
+                    "Recording...",
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 8.dp)
+                        .align(Alignment.CenterVertically)
+                )
                 IconButton(onClick = onRecordStop) {
-                    Icon(Icons.Filled.Stop, "Stop Recording", tint = MaterialTheme.colorScheme.primary)
+                    Icon(
+                        Icons.Filled.Stop,
+                        "Stop Recording",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                 }
             } else {
                 // Action Buttons (Left Side)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onAttachImageClick, enabled = canAttach) {
-                        Icon(Icons.Filled.AddPhotoAlternate, "Attach Image",
-                            tint = if (canAttach) defaultContentColor else disabledContentColor)
+                        Icon(
+                            Icons.Filled.AddPhotoAlternate, "Attach Image",
+                            tint = if (canAttach) defaultContentColor else disabledContentColor
+                        )
                     }
-                    IconButton(onClick = onSendLocationClick, enabled = canSendLocation && !isFetchingLocation) {
-                        if (isFetchingLocation) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
-                        else Icon(Icons.Filled.LocationOn, "Send Location",
-                            tint = if (canSendLocation) defaultContentColor else disabledContentColor)
+                    IconButton(
+                        onClick = onSendLocationClick,
+                        enabled = canSendLocation && !isFetchingLocation
+                    ) {
+                        if (isFetchingLocation) CircularProgressIndicator(
+                            Modifier.size(24.dp),
+                            strokeWidth = 2.dp
+                        )
+                        else Icon(
+                            Icons.Filled.LocationOn, "Send Location",
+                            tint = if (canSendLocation) defaultContentColor else disabledContentColor
+                        )
                     }
                 }
 
@@ -896,10 +1250,14 @@ fun MessageInput(
                 OutlinedTextField(
                     value = text,
                     onValueChange = onTextChanged,
-                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp).align(Alignment.Bottom), // Align to bottom
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 8.dp)
+                        .align(Alignment.Bottom), // Align to bottom
                     placeholder = { Text(if (isEditing) "Edit message..." else "Type a message...") },
                     shape = MaterialTheme.shapes.medium, // Rounded corners
-                    colors = TextFieldDefaults.colors( // Remove underline indicators
+                    colors = TextFieldDefaults.colors(
+                        // Remove underline indicators
                         focusedIndicatorColor = Color.Transparent,
                         unfocusedIndicatorColor = Color.Transparent,
                         disabledIndicatorColor = Color.Transparent,
@@ -914,20 +1272,26 @@ fun MessageInput(
                     if (isEditing) {
                         // Save Edit Button (Always show Check when isEditing is true)
                         IconButton(onClick = onSendClick, enabled = isSendEnabled) {
-                            Icon(Icons.Filled.Check, "Save Edit",
-                                tint = if(isSendEnabled) MaterialTheme.colorScheme.primary else disabledContentColor )
+                            Icon(
+                                Icons.Filled.Check, "Save Edit",
+                                tint = if (isSendEnabled) MaterialTheme.colorScheme.primary else disabledContentColor
+                            )
                         }
                     } else if (showSendButton) { // <-- Use the passed parameter HERE
                         // Send Button
                         IconButton(onClick = onSendClick, enabled = isSendEnabled) {
-                            Icon(Icons.AutoMirrored.Filled.Send, "Send",
-                                tint = if(isSendEnabled) MaterialTheme.colorScheme.primary else disabledContentColor )
+                            Icon(
+                                Icons.AutoMirrored.Filled.Send, "Send",
+                                tint = if (isSendEnabled) MaterialTheme.colorScheme.primary else disabledContentColor
+                            )
                         }
                     } else {
                         // Record Button
                         IconButton(onClick = onRecordStart, enabled = canRecord) {
-                            Icon(Icons.Filled.Mic, "Record Audio",
-                                tint = if (canRecord) defaultContentColor else disabledContentColor)
+                            Icon(
+                                Icons.Filled.Mic, "Record Audio",
+                                tint = if (canRecord) defaultContentColor else disabledContentColor
+                            )
                         }
                     }
                 } // End Box for Button
@@ -941,19 +1305,27 @@ fun MessageInput(
 fun ImagePreviewArea(uri: Uri, onSendClick: () -> Unit, onCancelClick: () -> Unit) {
     Surface(shadowElevation = 4.dp, tonalElevation = 1.dp) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onCancelClick) { Icon(Icons.Filled.Cancel, "Cancel Image") }
             Spacer(modifier = Modifier.width(8.dp))
             AsyncImage(
                 model = uri, contentDescription = "Image Preview",
-                modifier = Modifier.size(64.dp).clip(MaterialTheme.shapes.small),
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(MaterialTheme.shapes.small),
                 contentScale = ContentScale.Crop
             )
             Spacer(modifier = Modifier.weight(1f))
             IconButton(onClick = onSendClick) {
-                Icon(Icons.AutoMirrored.Filled.Send, "Send Image", tint = MaterialTheme.colorScheme.primary)
+                Icon(
+                    Icons.AutoMirrored.Filled.Send,
+                    "Send Image",
+                    tint = MaterialTheme.colorScheme.primary
+                )
             }
         }
     }
@@ -961,20 +1333,35 @@ fun ImagePreviewArea(uri: Uri, onSendClick: () -> Unit, onCancelClick: () -> Uni
 
 @Composable
 fun FullScreenImageDialog(imageUrl: String, onDismiss: () -> Unit) {
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Box(
-            modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.85f)) // Slightly darker background
-                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { onDismiss() }, // Click outside to dismiss
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.85f)) // Slightly darker background
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }) { onDismiss() }, // Click outside to dismiss
             contentAlignment = Alignment.Center
         ) {
             AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current).data(imageUrl).crossfade(true).build(),
+                model = ImageRequest.Builder(LocalContext.current).data(imageUrl).crossfade(true)
+                    .build(),
                 contentDescription = "Full screen image",
-                modifier = Modifier.fillMaxWidth().padding(16.dp), // Padding around image
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp), // Padding around image
                 contentScale = ContentScale.Fit // Fit image within screen
             )
             // Close button top right
-            IconButton(onClick = onDismiss, modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) {
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+            ) {
                 Icon(Icons.Filled.Close, "Close", tint = Color.White)
             }
         }
@@ -998,7 +1385,12 @@ fun ReplyPreview(
                 .padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.AutoMirrored.Filled.Reply, "Replying", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary) // Tint icon
+            Icon(
+                Icons.AutoMirrored.Filled.Reply,
+                "Replying",
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.primary
+            ) // Tint icon
             Spacer(Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -1013,11 +1405,18 @@ fun ReplyPreview(
                 )
             }
             // Cancel Button
-            IconButton(onClick = onCancel, modifier = Modifier.size(32.dp).padding(4.dp)) {
+            IconButton(
+                onClick = onCancel, modifier = Modifier
+                    .size(32.dp)
+                    .padding(4.dp)
+            ) {
                 Icon(Icons.Filled.Close, "Cancel Reply", modifier = Modifier.size(18.dp))
             }
         }
-        HorizontalDivider(thickness = Dp.Hairline, color = MaterialTheme.colorScheme.outlineVariant) // Separator line below
+        HorizontalDivider(
+            thickness = Dp.Hairline,
+            color = MaterialTheme.colorScheme.outlineVariant
+        ) // Separator line below
     }
 }
 
@@ -1035,7 +1434,12 @@ fun EditPreview(
                 .padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Filled.Edit, "Editing", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary) // Tint icon
+            Icon(
+                Icons.Filled.Edit,
+                "Editing",
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.primary
+            ) // Tint icon
             Spacer(Modifier.width(8.dp))
             Text(
                 text = "Editing message...", // Simple text indicator
@@ -1044,11 +1448,18 @@ fun EditPreview(
                 modifier = Modifier.weight(1f)
             )
             // Cancel Button
-            IconButton(onClick = onCancel, modifier = Modifier.size(32.dp).padding(4.dp)) {
+            IconButton(
+                onClick = onCancel, modifier = Modifier
+                    .size(32.dp)
+                    .padding(4.dp)
+            ) {
                 Icon(Icons.Filled.Close, "Cancel Edit", modifier = Modifier.size(18.dp))
             }
         }
-        HorizontalDivider(thickness = Dp.Hairline, color = MaterialTheme.colorScheme.outlineVariant) // Separator line below
+        HorizontalDivider(
+            thickness = Dp.Hairline,
+            color = MaterialTheme.colorScheme.outlineVariant
+        ) // Separator line below
     }
 }
 
@@ -1056,8 +1467,10 @@ fun EditPreview(
 // --- Helper function for previews (can be private to the file) ---
 private fun generatePreview(message: ChatMessage): String {
     return when (message.messageType) {
-        MessageType.TEXT -> message.text?.take(60)?.let { if (it.length == 60) "$it..." else it } ?: "[Message]" // Longer preview?
-        MessageType.IMAGE -> "[Image]" + (message.text?.take(40)?.let { "\n\"$it...\"" } ?: "") // Show caption preview if exists
+        MessageType.TEXT -> message.text?.take(60)?.let { if (it.length == 60) "$it..." else it }
+            ?: "[Message]" // Longer preview?
+        MessageType.IMAGE -> "[Image]" + (message.text?.take(40)?.let { "\n\"$it...\"" }
+            ?: "") // Show caption preview if exists
         MessageType.AUDIO -> "[Audio Message]"
         MessageType.LOCATION -> message.locationName ?: "[Location]"
         null -> "[Message]"
@@ -1066,9 +1479,14 @@ private fun generatePreview(message: ChatMessage): String {
 
 // --- AI Dialog Content Composable (Placeholder - use your actual implementation) ---
 @Composable
-fun AiDialogContent(apiState: UiState<ZpResponse>, jsonToSend: String) { // Replace ChatResponse with your actual response model
+fun AiDialogContent(
+    apiState: UiState<ZpResponse>,
+    jsonToSend: String
+) { // Replace ChatResponse with your actual response model
     Box( /* ... Box setup ... */
-        modifier = Modifier.fillMaxWidth().heightIn(min = 150.dp, max = 400.dp), // Adjust max height if needed
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 150.dp, max = 400.dp), // Adjust max height if needed
         contentAlignment = Alignment.Center
     ) {
         when (val state = apiState) {
@@ -1079,10 +1497,12 @@ fun AiDialogContent(apiState: UiState<ZpResponse>, jsonToSend: String) { // Repl
                     item { Text(jsonToSend) } // Display the generated JSON
                 }
             }
+
             is UiState.Loading -> CircularProgressIndicator()
             is UiState.Success -> {
                 // --- Replace with accessing your actual response data structure ---
-                val responseText = state.data.choices?.firstOrNull()?.message?.content ?: "No content in response."
+                val responseText =
+                    state.data.choices?.firstOrNull()?.message?.content ?: "No content in response."
                 // --- End Replace ---
                 LazyColumn { // Make response scrollable
                     item { Text("AI Response:", fontWeight = FontWeight.Bold) }
@@ -1090,7 +1510,11 @@ fun AiDialogContent(apiState: UiState<ZpResponse>, jsonToSend: String) { // Repl
                     item { Text(responseText) }
                 }
             }
-            is UiState.Error -> Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error)
+
+            is UiState.Error -> Text(
+                "Error: ${state.message}",
+                color = MaterialTheme.colorScheme.error
+            )
         }
     }
 }
