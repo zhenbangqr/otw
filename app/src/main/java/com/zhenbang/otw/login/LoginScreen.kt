@@ -2,6 +2,7 @@ package com.zhenbang.otw.login // Adjust package if needed
 
 import android.app.Activity
 import android.content.Intent
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -29,6 +30,7 @@ import com.zhenbang.otw.auth.AuthViewModel
 // Use correct import if LoginViewModel is in auth package
 import com.zhenbang.otw.login.LoginViewModel
 import com.zhenbang.otw.login.LoginUiState
+import kotlinx.coroutines.flow.collectLatest
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,6 +44,8 @@ fun LoginScreen(
 ) {
     val googleAuthState by authViewModel.userAuthState.collectAsStateWithLifecycle()
     val loginState by loginViewModel.uiState.collectAsStateWithLifecycle()
+    val isResettingPassword by loginViewModel.isResettingPassword.collectAsStateWithLifecycle()
+
     val context = LocalContext.current
 
     var email by rememberSaveable { mutableStateOf("") }
@@ -49,6 +53,13 @@ fun LoginScreen(
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
 
     val isLoading = loginState is LoginUiState.Loading || googleAuthState.isLoading
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(loginViewModel.feedbackMessage) {
+        loginViewModel.feedbackMessage.collectLatest { message ->
+            snackbarHostState.showSnackbar(message)
+        }
+    }
 
     // --- ActivityResult Launcher for AppAuth Authorization ---
     val authLauncher = rememberLauncherForActivityResult(
@@ -104,6 +115,9 @@ fun LoginScreen(
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("On The Way Login") })
+        },
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
         }
     ) { paddingValues ->
         Column(
@@ -168,6 +182,19 @@ fun LoginScreen(
                 enabled = !isLoading,
                 isError = loginState is LoginUiState.Error
             )
+
+            // --- Add Forgot Password Button ---
+            TextButton(
+                onClick = {
+                    val emailToReset = email // Get email from the state variable
+                    Log.d("LoginScreen", "Attempting password reset for email: '[$emailToReset]'") // Log with brackets to see spaces
+                    loginViewModel.sendPasswordReset(emailToReset)
+                },
+                modifier = Modifier.align(Alignment.End), // Align to the right
+                enabled = !isLoading // Disable while any loading is happening
+            ) {
+                Text("Forgot password?")
+            }
 
             // Login with Email Button
             Button(

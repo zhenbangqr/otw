@@ -8,7 +8,6 @@ import com.google.gson.annotations.SerializedName
  */
 
 data class ZpRequest(
-
     @SerializedName("model")
     val model: String,
 

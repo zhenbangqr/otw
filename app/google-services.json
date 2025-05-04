@@ -13,7 +13,20 @@
           "package_name": "com.zhenbang.otw"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "257673197744-cjo7foidi09i4qo1iqhje5lb1ihhp820.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.zhenbang.otw",
+            "certificate_hash": "d347747bf6b7a96e6680143a37904577580173f9"
+          }
+        },
+        {
+          "client_id": "257673197744-3ccfpjk764uj5fmb5sv7p4pgjtmvqs6b.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyB1J6IbaB2i9bvyoGB_VdhrE-2bopffKTE"
@@ -21,7 +34,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "257673197744-3ccfpjk764uj5fmb5sv7p4pgjtmvqs6b.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

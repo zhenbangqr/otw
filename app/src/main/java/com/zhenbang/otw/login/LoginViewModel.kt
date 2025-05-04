@@ -1,6 +1,5 @@
 package com.zhenbang.otw.login
 
-// --- Imports ---
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
@@ -8,18 +7,20 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.Timestamp // Import Timestamp if used in profile data map
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.messaging.FirebaseMessaging // For FCM token
 import com.zhenbang.otw.data.AuthRepository
 import com.zhenbang.otw.data.FirebaseAuthRepository // Assuming direct instantiation for now
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await // For awaiting token task
 import java.io.IOException
 import java.lang.IllegalArgumentException
-
-// Make sure LoginUiState is imported or defined in this package
-// import com.zhenbang.otw.login.LoginUiState
 
 
 class LoginViewModel(application: Application) : AndroidViewModel(application) {
@@ -31,6 +32,13 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
     val uiState = _uiState.asStateFlow()
+
+    private val _feedbackMessage = MutableSharedFlow<String>()
+    val feedbackMessage: SharedFlow<String> = _feedbackMessage.asSharedFlow()
+
+    private val _isResettingPassword = MutableStateFlow(false)
+    val isResettingPassword: StateFlow<Boolean> = _isResettingPassword.asStateFlow()
+
 
     // --- Email/Password Sign In ---
     fun signInUser(email: String, password: String) {
@@ -69,6 +77,56 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
                 Log.e(TAG, "Sign in failed", signInException)
                 val errorMsg = mapLoginError(signInException)
                 _uiState.value = LoginUiState.Error(errorMsg)
+            }
+        }
+    }
+
+    // --- NEW: Function to send password reset email ---
+    fun sendPasswordReset(email: String) {
+        // Basic validation
+        if (!isValidEmailFormat(email)) {
+            _uiState.value = LoginUiState.Error("Please enter a valid email address.")
+            return
+        }
+        if (_isResettingPassword.value) return // Prevent multiple requests
+
+        viewModelScope.launch {
+            _isResettingPassword.value = true
+            clearErrorState() // Clear previous general errors
+            Log.d(TAG, "Attempting password reset for: $email")
+
+            try {
+                // 1. Check if user exists by fetching sign-in methods
+                val queryResult: com.google.firebase.auth.SignInMethodQueryResult = firebaseAuth.fetchSignInMethodsForEmail(email).await()
+
+                // --- FIX IS HERE: Check queryResult.signInMethods ---
+                if (queryResult.signInMethods.isNullOrEmpty()) {
+                    // ---------------------------------------------------
+                    // Email does not exist or has no sign-in methods linked
+                    Log.w(TAG, "Password reset requested for non-existent or unlinked email: $email")
+                    firebaseAuth.sendPasswordResetEmail(email).await()
+                    // Send a neutral message to avoid confirming if an email exists or not
+                    _feedbackMessage.emit("If an account exists for $email, a password reset link has been sent.")
+                } else {
+                    // 2. User likely exists, send the reset email
+                    Log.d(TAG, "Account likely exists for $email (methods: ${queryResult.signInMethods}). Sending reset email.")
+                    firebaseAuth.sendPasswordResetEmail(email).await()
+                    Log.d(TAG, "Password reset email send attempt complete for: $email")
+                    // Send confirmation regardless of actual send success for security (prevents email enumeration)
+                    _feedbackMessage.emit("If an account exists for $email, a password reset link has been sent. Check your inbox (and spam folder).")
+                }
+            } catch (e: FirebaseAuthInvalidUserException) {
+                // This specific exception might indicate the user is disabled or truly not found,
+                // but we still give the neutral message for security.
+                Log.w(TAG, "Password reset failed (InvalidUser): $email", e)
+                _feedbackMessage.emit("If an account exists for $email, a password reset link has been sent.")
+            } catch (e: Exception) {
+                // Handle other errors (network, service unavailable, etc.)
+                Log.e(TAG, "Password reset failed for: $email", e)
+                // Show a more generic error for other failures
+                _uiState.value = LoginUiState.Error("Failed to send reset email: ${e.message ?: "Please try again later"}")
+            } finally {
+                _isResettingPassword.value = false // Reset loading state regardless of outcome
             }
         }
     }
