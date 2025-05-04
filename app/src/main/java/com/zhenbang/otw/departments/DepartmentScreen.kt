@@ -707,6 +707,10 @@ fun TaskList(
                 val canEditTaskFlow = remember { taskViewModel.canEditTask(task.taskId, currentUserEmail) }
                 val canEdit by canEditTaskFlow.collectAsState(initial = false)
 
+                val subTasksFlow = remember { taskViewModel.getSubTasksByTaskId(task.taskId) }
+                val subTasks by subTasksFlow.collectAsState(initial = emptyList())
+                val allSubTasksCompleted = subTasks.isNotEmpty() && subTasks.all { it.isCompleted }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -715,11 +719,11 @@ fun TaskList(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Checkbox(
-                        checked = task.isCompleted,
+                        checked = if (subTasks.isNotEmpty()) allSubTasksCompleted else task.isCompleted,
                         onCheckedChange = if (canEdit) { isChecked ->
                             onTaskCompletedChanged(task, isChecked)
                         } else null,
-                        enabled = canEdit,
+                        enabled = canEdit && subTasks.isEmpty(),
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Column(

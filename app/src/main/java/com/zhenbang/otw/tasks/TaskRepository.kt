@@ -3,6 +3,8 @@ package com.zhenbang.otw.tasks
 import android.content.Context
 import com.zhenbang.otw.database.DeptUser
 import com.zhenbang.otw.database.DeptUserDao
+import com.zhenbang.otw.database.SubTask
+import com.zhenbang.otw.database.SubTaskDao
 import com.zhenbang.otw.database.Task
 import com.zhenbang.otw.database.TaskAssignment
 import com.zhenbang.otw.database.TaskAssignmentDao
@@ -10,17 +12,19 @@ import com.zhenbang.otw.database.TaskDao
 import com.zhenbang.otw.database.WorkspaceDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
 
 class TaskRepository(
     private val taskDao: TaskDao,
     private val deptUserDao: DeptUserDao,
-    private val taskAssignmentDao: TaskAssignmentDao
+    private val taskAssignmentDao: TaskAssignmentDao,
+    private val subTaskDao: SubTaskDao
 ) {
 
     val allTasks: Flow<List<Task>> = taskDao.getAllTasks()
 
-    suspend fun insertTask(task: Task, userEmails: List<String>) {
+    suspend fun insertTask(task: Task, userEmails: List<String>, subTasks: List<SubTask> = emptyList()) {
         withContext(Dispatchers.IO) {
             val task = Task(
                 taskTitle = task.taskTitle,
@@ -30,13 +34,39 @@ class TaskRepository(
             )
             val taskId = taskDao.insertTask(task).toInt()
             assignUsersToTask(taskId, userEmails)
+
+            subTasks.forEach { subTask ->
+                val subTaskToInsert = subTask.copy(taskId = taskId)
+                subTaskDao.insertSubTask(subTaskToInsert)
+            }
         }
     }
 
-    suspend fun updateTask(task: Task, userEmails: List<String>) {
+    suspend fun updateTask(task: Task, userEmails: List<String>, subTasks: List<SubTask> = emptyList()) {
         withContext(Dispatchers.IO) {
             taskDao.updateTask(task)
             assignUsersToTask(task.taskId, userEmails, clearExisting = true)
+
+            // Update or insert subtasks.  This is more complex.
+            val existingSubTasks = subTaskDao.getSubTasksByTaskId(task.taskId).firstOrNull() ?: emptyList()
+            val existingSubTaskIds = existingSubTasks.map { it.subTaskId }.toSet()
+
+            subTasks.forEach { subTask ->
+                if (subTask.subTaskId == 0) { // New subtask
+                    val subTaskToInsert = subTask.copy(taskId = task.taskId)
+                    subTaskDao.insertSubTask(subTaskToInsert)
+                } else if (existingSubTaskIds.contains(subTask.subTaskId)) { //update
+                    subTaskDao.updateSubTask(subTask)
+                }
+                // Subtasks not in the incoming list are assumed to be deleted.  Handle this as needed.
+            }
+            //delete subtasks
+            val subTasksToDelete = existingSubTasks.filter { existingSubTask ->
+                subTasks.none { it.subTaskId == existingSubTask.subTaskId }
+            }
+            subTasksToDelete.forEach{
+                subTaskDao.deleteSubTask(it)
+            }
         }
     }
 
@@ -90,6 +120,38 @@ class TaskRepository(
         }
     }
 
+    suspend fun insertSubTask(subTask: SubTask) {
+        withContext(Dispatchers.IO) {
+            subTaskDao.insertSubTask(subTask)
+        }
+    }
+
+    suspend fun updateSubTask(subTask: SubTask){
+        withContext(Dispatchers.IO){
+            subTaskDao.updateSubTask(subTask)
+        }
+    }
+
+    suspend fun deleteSubTask(subTask: SubTask){
+        withContext(Dispatchers.IO){
+            subTaskDao.deleteSubTask(subTask)
+        }
+    }
+
+    suspend fun updateSubTaskCompletion(subTask: SubTask, isCompleted: Boolean) {
+        withContext(Dispatchers.IO) {
+            subTaskDao.updateSubTask(subTask.copy(isCompleted = isCompleted))
+        }
+    }
+
+    fun getSubTasksByTaskId(taskId: Int): Flow<List<SubTask>> {
+        return subTaskDao.getSubTasksByTaskId(taskId)
+    }
+
+    fun getSubTaskById(subTaskId: Int): Flow<SubTask?> {
+        return subTaskDao.getSubTaskById(subTaskId)
+    }
+
     companion object {
         @Volatile
         private var INSTANCE: TaskRepository? = null
@@ -100,7 +162,8 @@ class TaskRepository(
                 val instance = TaskRepository(
                     database.taskDao(),
                     database.deptUserDao(),
-                    database.taskAssignmentDao()
+                    database.taskAssignmentDao(),
+                    database.subTaskDao()
                 )
                 INSTANCE = instance
                 instance
