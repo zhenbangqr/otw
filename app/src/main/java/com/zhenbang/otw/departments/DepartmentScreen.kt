@@ -720,9 +720,9 @@ fun TaskList(
                 ) {
                     Checkbox(
                         checked = if (subTasks.isNotEmpty()) allSubTasksCompleted else task.isCompleted,
-                        onCheckedChange = if (canEdit) { isChecked ->
+                        onCheckedChange = { isChecked ->
                             onTaskCompletedChanged(task, isChecked)
-                        } else null,
+                        },
                         enabled = canEdit && subTasks.isEmpty(),
                     )
                     Spacer(modifier = Modifier.width(8.dp))
