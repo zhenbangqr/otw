@@ -124,11 +124,6 @@ fun ProfileScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                actions = {
-                    IconButton(onClick = { /* TODO: Handle More options */ }) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "More options")
-                    }
-                }
             )
         }
     ) { paddingValues ->
