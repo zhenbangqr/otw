@@ -15,7 +15,8 @@ import kotlinx.coroutines.tasks.await
 // Simple data class to hold user info for the list
 data class UserInfo(
     val uid: String = "",
-    val name: String? = null, // Or username, adjust field name as needed
+    val displayName: String? = null, // Or username, adjust field name as needed
+    var profileImageUrl: String? = null,
     // Add other relevant fields like profileImageUrl if you have them
 )
 

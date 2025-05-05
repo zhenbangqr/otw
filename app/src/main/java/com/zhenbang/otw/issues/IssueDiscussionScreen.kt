@@ -297,7 +297,8 @@ fun IssueDetailsHeader(
     AsyncImage(
         model = ImageRequest.Builder(LocalContext.current)
             .data(creatorProfile?.profileImageUrl) // Uses creatorProfile
-            // ... placeholder, error, modifiers ...
+            .placeholder(R.drawable.ic_placeholder_profile) // Placeholder while loading large image
+            .error(R.drawable.ic_placeholder_profile)
             .build(),
         contentDescription = "Creator Avatar",
         modifier = Modifier.size(48.dp).clip(CircleShape)

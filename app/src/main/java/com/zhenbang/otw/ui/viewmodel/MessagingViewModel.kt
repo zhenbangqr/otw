@@ -500,7 +500,7 @@ class MessagingViewModel(
         return try {
             val doc = db.collection("users").document(userId).get().await()
             // Prioritize username, fallback to name, then return null if neither exist
-            doc.getString("username") ?: doc.getString("name")
+            doc.getString("username") ?: doc.getString("displayName")
         } catch (e: Exception) {
             Log.e("MessagingViewModel", "Failed to fetch username for $userId", e)
             null // Return null on any exception during fetch
