@@ -56,6 +56,7 @@ import com.zhenbang.otw.ui.viewmodel.NewsViewModel
 import com.zhenbang.otw.ui.viewmodel.WeatherViewModel
 import com.zhenbang.otw.UserListScreen
 import com.zhenbang.otw.MessagingScreen
+import com.zhenbang.otw.profile.help.HelpScreen
 import com.zhenbang.otw.ui.viewmodel.ChatHistoryViewModel
 
 
@@ -69,6 +70,7 @@ object AppDestinations {
     const val MAIN_PAGE_ROUTE = "main_page"
     const val LOADING_ROUTE = "loading"
     const val PROFILE_ROUTE = "profile"
+    const val HELP_ROUTE = "help"
     const val LANGUAGE_SELECTION_ROUTE = "language_selection"
     const val CHAT_THEME_SELECTION_ROUTE = "chat_theme_selection"
     const val MANAGE_ACCOUNT_ROUTE = "manage_account"
@@ -221,6 +223,7 @@ fun AppNavigation() {
             AppDestinations.TASK_DETAIL_ROUTE,
             AppDestinations.ADD_EDIT_TASK_ROUTE,
             AppDestinations.ADD_EDIT_ISSUE_ROUTE,
+            AppDestinations.HELP_ROUTE,
             AppDestinations.LANGUAGE_SELECTION_ROUTE,
             AppDestinations.CHAT_THEME_SELECTION_ROUTE,
             AppDestinations.MANAGE_ACCOUNT_ROUTE,
@@ -392,6 +395,9 @@ fun AppNavigation() {
                 profileViewModel = profileViewModel,
                 onNavigateBack = { navController.popBackStack() },
                 onLogout = performLogout,
+                onNavigateToHelp = {
+                    navController.navigate(AppDestinations.HELP_ROUTE)
+                },
                 onNavigateToChatTheme = {
                     navController.navigate(AppDestinations.CHAT_THEME_SELECTION_ROUTE)
                 },
@@ -406,12 +412,18 @@ fun AppNavigation() {
                 }
             )
         }
+
+        // --- Profile Screen -> Help Screen ---
+        composable(route = AppDestinations.HELP_ROUTE) {
+            HelpScreen(navController = navController)
+        }
+
         // --- Profile Screen -> Language Screen ---
         composable(route = AppDestinations.LANGUAGE_SELECTION_ROUTE) {
             LanguageScreen(navController = navController)
         }
 
-        // --- Profile Screen -> Language Screen ---
+        // --- Profile Screen -> Chat Theme Screen ---
         composable(route = AppDestinations.CHAT_THEME_SELECTION_ROUTE) {
             ChatThemeScreen(navController = navController)
         }
