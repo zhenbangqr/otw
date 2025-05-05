@@ -18,6 +18,7 @@ data class ChatHistoryItem(
     val chatId: String = "",            // e.g., uid1_uid2
     val otherUserId: String = "",
     val otherUserName: String? = "User...", // Name of the other user
+    val otherUserProfileImageUrl: String? = "", // Profile image URL of the other user
     val lastMessagePreview: String? = null, // Preview text (e.g., "How are you?", "[Image]", "[Location]")
     val lastMessageTimestamp: Date? = null,  // Timestamp of the last message
     // Add other fields like otherUserProfileImageUrl if available
@@ -105,6 +106,7 @@ class ChatHistoryViewModel : ViewModel() {
                             // Fetch other user's name (asynchronously)
                             // If you have many chats, using async/awaitAll as in the previous example is better
                             val otherUserName = fetchUserName(otherUserId)
+                            val otherUserProfileImageUrl = fetchUserProfile(otherUserId)
 
                             // Get denormalized last message data directly from the chat document
                             val lastMsgPreview = chatDoc.getString("lastMessagePreview")
@@ -115,6 +117,7 @@ class ChatHistoryViewModel : ViewModel() {
                                     chatId = chatId,
                                     otherUserId = otherUserId,
                                     otherUserName = otherUserName ?: "User...",
+                                    otherUserProfileImageUrl = otherUserProfileImageUrl ?: "",
                                     lastMessagePreview = lastMsgPreview ?: "", // Provide default if null
                                     lastMessageTimestamp = lastMsgTimestamp
                                     // Add other fields like profile image URL if needed
@@ -146,7 +149,28 @@ class ChatHistoryViewModel : ViewModel() {
         return try {
             val snapshot = db.collection("users").document(userId).get().await()
             // Prioritize 'username', fallback to 'name', then return null
-            snapshot.getString("username") ?: snapshot.getString("name")
+            snapshot.getString("username") ?: snapshot.getString("displayName")
+        } catch (e: Exception) {
+            // Check for permission denied specifically
+            if (e is com.google.firebase.firestore.FirebaseFirestoreException && e.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                Log.e("ChatHistoryViewModel", "PERMISSION_DENIED fetching user name for $userId. Check Firestore rules for /users/{userId}", e)
+            } else {
+                Log.e("ChatHistoryViewModel", "Error fetching user name for $userId", e)
+            }
+            null // Return null on any error
+        }
+    }
+
+    private suspend fun fetchUserProfile(userId: String): String? {
+        // Check if we are trying to fetch the current user's name unnecessarily
+        if (userId == currentUser?.uid) {
+            // Optionally return current user's display name if available directly
+            // return currentUser?.displayName ?: "Me" // Example
+        }
+        return try {
+            val snapshot = db.collection("users").document(userId).get().await()
+            // Prioritize 'username', fallback to 'name', then return null
+            snapshot.getString("profileImageUrl")
         } catch (e: Exception) {
             // Check for permission denied specifically
             if (e is com.google.firebase.firestore.FirebaseFirestoreException && e.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {

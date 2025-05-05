@@ -11,7 +11,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 
-
 class DepartmentRepository(
     private val departmentDao: DepartmentDao,
     private val deptUserDao: DeptUserDao
@@ -33,7 +32,7 @@ class DepartmentRepository(
                 imageUrl = imageUrl
             )
             val departmentId =
-                departmentDao.insertDepartment(department).toInt() // Get the generated ID
+                departmentDao.insertDepartment(department).toInt()
             deptUserDao.insertDeptUser(
                 DeptUser(
                     departmentId = departmentId,

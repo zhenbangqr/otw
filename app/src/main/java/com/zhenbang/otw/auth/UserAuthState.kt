@@ -11,13 +11,12 @@ data class GoogleUserInfo(
 data class UserAuthState(
     val isAuthorized: Boolean = false,
     val accessToken: String? = null,
-    val refreshToken: String? = null, // Still present, maybe remove later
+    val refreshToken: String? = null,
     val idToken: String? = null,
     val error: String? = null,
-    val needsTokenExchange: Boolean = false, // Still present, maybe remove later
-    val authCode: String? = null,          // Still present, maybe remove later
-    val tokenResponse: TokenResponse? = null, // Still present, maybe remove later
+    val needsTokenExchange: Boolean = false,
+    val authCode: String? = null,
+    val tokenResponse: TokenResponse? = null,
     val isLoading: Boolean = false,
     val userInfo: GoogleUserInfo? = null,
 )
-

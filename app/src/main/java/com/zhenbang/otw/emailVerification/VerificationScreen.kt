@@ -14,13 +14,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
 
-
-
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VerificationScreen(
-    email: String?, // Make email nullable or handle appropriately if unavailable
+    email: String?,
     verificationViewModel: VerificationViewModel = viewModel(),
     onNavigateToLogin: () -> Unit,
     onNavigateBack: () -> Unit
@@ -29,11 +26,9 @@ fun VerificationScreen(
     val uiState by verificationViewModel.uiState.collectAsStateWithLifecycle()
     val isVerifiedStatus = verificationViewModel.isVerified
 
-    // Resend Button Timer State
     var isResendTimerRunning by rememberSaveable { mutableStateOf(false) }
     var resendRemainingTime by rememberSaveable { mutableStateOf(0) }
 
-    // Resend Timer Logic (remains the same)
     LaunchedEffect(key1 = isResendTimerRunning) {
         if (isResendTimerRunning) {
             while (resendRemainingTime > 0) {
@@ -50,6 +45,7 @@ fun VerificationScreen(
                 Toast.makeText(context, state.message, Toast.LENGTH_SHORT).show()
                 verificationViewModel.clearVerificationError()
             }
+
             else -> {}
         }
     }
@@ -60,11 +56,11 @@ fun VerificationScreen(
             onNavigateToLogin()
             verificationViewModel.resetVerificationStatus()
         } else if (isVerifiedStatus == false) {
-            if(uiState is VerificationUiState.Checking){
+            if (uiState is VerificationUiState.Checking) {
                 Toast.makeText(context, "Email not verified yet.", Toast.LENGTH_SHORT).show()
             }
             verificationViewModel.resetVerificationStatus()
-            if(uiState !is VerificationUiState.Error) {
+            if (uiState !is VerificationUiState.Error) {
                 verificationViewModel.resetVerificationStateToIdle()
             }
         }
@@ -94,20 +90,24 @@ fun VerificationScreen(
             )
             Spacer(modifier = Modifier.height(32.dp))
 
-            val isLoading = uiState is VerificationUiState.Checking || uiState is VerificationUiState.Resending
+            val isLoading =
+                uiState is VerificationUiState.Checking || uiState is VerificationUiState.Resending
 
-            // Resend Verification Button
             Button(
                 onClick = {
                     verificationViewModel.resendVerificationLink()
-                    resendRemainingTime = 60 // Start 60s timer
+                    resendRemainingTime = 60
                     isResendTimerRunning = true
                 },
-                enabled = !isResendTimerRunning && !isLoading, // Disable during timer and loading states
+                enabled = !isResendTimerRunning && !isLoading,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (uiState is VerificationUiState.Resending) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
                 } else {
                     Text(if (isResendTimerRunning) "Resend Link (${resendRemainingTime}s)" else "Resend Verification Link")
                 }
@@ -115,7 +115,6 @@ fun VerificationScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Button to check if verified / continue
             OutlinedButton(
                 onClick = {
                     verificationViewModel.checkVerificationStatus()
@@ -130,7 +129,6 @@ fun VerificationScreen(
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
-            // Optional: Button to go back
             TextButton(onClick = onNavigateBack, enabled = !isLoading) {
                 Text("Go Back")
             }

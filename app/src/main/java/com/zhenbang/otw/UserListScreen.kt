@@ -1,9 +1,11 @@
 package com.zhenbang.otw // Or your UI package
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack // Import AutoMirrored ArrowBack
 import androidx.compose.material.icons.filled.AccountCircle // Example Icon
@@ -13,10 +15,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.zhenbang.otw.ui.viewmodel.UserInfo
 import com.zhenbang.otw.ui.viewmodel.UserListViewModel
 
@@ -81,6 +87,7 @@ fun UserListScreen(
                         items(users, key = { it.uid }) { user ->
                             UserListItemRow(
                                 user = user,
+
                                 onClick = {
                                     // Navigate to MessagingScreen with the selected user's ID
                                     navController.navigate(Routes.messagingWithUser(user.uid)) // Use your route helper
@@ -107,16 +114,20 @@ fun UserListItemRow(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Optional: Add user avatar/icon here
-        Icon(
-            imageVector = Icons.Default.AccountCircle,
-            contentDescription = "User profile picture", // Change if you have actual images
-            modifier = Modifier.size(40.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        AsyncImage(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(user?.profileImageUrl) // Uses creatorProfile
+                .crossfade(true)
+                .placeholder(R.drawable.ic_placeholder_profile) // Placeholder while loading large image
+                .error(R.drawable.ic_placeholder_profile)     // Error image
+                .build(),
+            contentDescription = "Creator Avatar",
+            modifier = Modifier.size(48.dp).clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
         )
         Spacer(modifier = Modifier.width(16.dp))
         Text(
-            text = user.name ?: "User ${user.uid.take(6)}...", // Display name or fallback
+            text = user.displayName ?: "User ${user.uid.take(6)}...", // Display name or fallback
             style = MaterialTheme.typography.bodyLarge,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis

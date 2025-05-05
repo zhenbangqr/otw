@@ -26,7 +26,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -75,7 +74,6 @@ import com.zhenbang.otw.database.Task
 import com.zhenbang.otw.issues.IssueViewModel
 import com.zhenbang.otw.tasks.TaskViewModel
 import kotlinx.coroutines.launch
-
 
 sealed class Screen(val route: String) {
     object DepartmentDetails : Screen("department_details/{departmentId}/{departmentName}") {
@@ -594,7 +592,8 @@ fun TabbedContentSection(
             TabButton(
                 text = "Issues",
                 isSelected = currentSelectedTab == "Issues"
-            ) { onTabSelected("Issues")
+            ) {
+                onTabSelected("Issues")
 
             }
             TabButton(
@@ -614,6 +613,7 @@ fun TabbedContentSection(
                     onIssueClick = onNavigateToIssueDiscussion,
                     modifier = Modifier.fillMaxSize()
                 )
+
                 "Tasks" -> TaskList(
                     tasks = tasks,
                     onNavigateToDetail = onNavigateToTaskDetail,
@@ -702,10 +702,15 @@ fun TaskList(
             style = typography.bodyMedium
         )
     } else {
-        Column() {
+        Column(modifier = modifier) {
             tasks.forEach { task ->
-                val canEditTaskFlow = remember { taskViewModel.canEditTask(task.taskId, currentUserEmail) }
+                val canEditTaskFlow =
+                    remember { taskViewModel.canEditTask(task.taskId, currentUserEmail) }
                 val canEdit by canEditTaskFlow.collectAsState(initial = false)
+
+                val subTasksFlow = remember { taskViewModel.getSubTasksByTaskId(task.taskId) }
+                val subTasks by subTasksFlow.collectAsState(initial = emptyList())
+                val allSubTasksCompleted = subTasks.isNotEmpty() && subTasks.all { it.isCompleted }
 
                 Row(
                     modifier = Modifier
@@ -715,11 +720,11 @@ fun TaskList(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Checkbox(
-                        checked = task.isCompleted,
-                        onCheckedChange = if (canEdit) { isChecked ->
+                        checked = if (subTasks.isNotEmpty()) allSubTasksCompleted else task.isCompleted,
+                        onCheckedChange = { isChecked ->
                             onTaskCompletedChanged(task, isChecked)
-                        } else null,
-                        enabled = canEdit,
+                        },
+                        enabled = canEdit && subTasks.isEmpty(),
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Column(

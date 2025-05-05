@@ -2,10 +2,7 @@ package com.zhenbang.otw.data
 
 import android.net.Uri
 import android.util.Log
-import androidx.compose.foundation.layout.size
-import androidx.core.graphics.values
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
@@ -13,22 +10,19 @@ import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.firestore.ktx.snapshots
 import com.google.firebase.firestore.ktx.toObject
+import com.google.firebase.firestore.ktx.toObjects
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.ktx.storage
-import kotlinx.coroutines.tasks.await
-import java.lang.Exception
-import java.lang.IllegalArgumentException
-import java.lang.IllegalStateException
-import java.util.UUID
-import com.google.firebase.firestore.Query
-import com.google.firebase.firestore.ktx.snapshots
-import kotlinx.coroutines.flow.map
-import com.google.firebase.firestore.ktx.toObjects
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.tasks.await
+import java.util.UUID
 
 class FirebaseAuthRepository : AuthRepository {
 
@@ -42,9 +36,15 @@ class FirebaseAuthRepository : AuthRepository {
      * Saves basic user information (like email) to the database after verification.
      * Creates the document or merges data if it exists. Sets initial profileImageUrl to null.
      */
-    override suspend fun saveUserDataAfterVerification(userId: String, email: String): Result<Unit> {
+    override suspend fun saveUserDataAfterVerification(
+        userId: String,
+        email: String
+    ): Result<Unit> {
         return try {
-            Log.d(TAG, "Attempting to save user data for $userId with email $email after verification")
+            Log.d(
+                TAG,
+                "Attempting to save user data for $userId with email $email after verification"
+            )
             val userProfile = hashMapOf(
                 "email" to email,
                 "uid" to userId,
@@ -104,7 +104,10 @@ class FirebaseAuthRepository : AuthRepository {
      * Creates a new user with email and password, then sends a verification email link.
      * User remains logged in but unverified after this call.
      */
-    override suspend fun createUserAndSendVerificationLink(email: String, password: String): Result<Unit> {
+    override suspend fun createUserAndSendVerificationLink(
+        email: String,
+        password: String
+    ): Result<Unit> {
         return try {
             Log.d(TAG, "Attempting to create user: $email")
             val authResult = firebaseAuth.createUserWithEmailAndPassword(email, password).await()
@@ -163,9 +166,12 @@ class FirebaseAuthRepository : AuthRepository {
                 return Result.success(false)
             }
             Log.d(TAG, "checkCurrentUserVerificationStatus: Reloading user ${user.uid}")
-            user.reload().await() // Reload to get latest status from Firebase backend
-            val isVerified = user.isEmailVerified // Check status AFTER reload
-            Log.d(TAG, "checkCurrentUserVerificationStatus: User ${user.uid}, isEmailVerified: $isVerified")
+            user.reload().await()
+            val isVerified = user.isEmailVerified
+            Log.d(
+                TAG,
+                "checkCurrentUserVerificationStatus: User ${user.uid}, isEmailVerified: $isVerified"
+            )
             Result.success(isVerified)
         } catch (e: Exception) {
             Log.e(TAG, "checkCurrentUserVerificationStatus failed", e)
@@ -207,7 +213,10 @@ class FirebaseAuthRepository : AuthRepository {
             val authResult = firebaseAuth.signInWithCredential(credential).await()
             val firebaseUser = authResult.user
             if (firebaseUser != null) {
-                Log.d(TAG, "Successfully linked/signed in Google user to Firebase: ${firebaseUser.uid}")
+                Log.d(
+                    TAG,
+                    "Successfully linked/signed in Google user to Firebase: ${firebaseUser.uid}"
+                )
                 Result.success(firebaseUser)
             } else {
                 Log.w(TAG, "Firebase sign-in with Google credential returned null user.")
@@ -232,7 +241,7 @@ class FirebaseAuthRepository : AuthRepository {
                 Result.success(userProfile)
             } else {
                 Log.d(TAG, "User profile document does not exist for $userId")
-                Result.success(null) // Return success with null data if document doesn't exist
+                Result.success(null)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to fetch user profile for $userId", e)
@@ -244,7 +253,10 @@ class FirebaseAuthRepository : AuthRepository {
      * Updates specific fields in the user's profile document in Firestore using merge.
      * Creates the document if it doesn't exist.
      */
-    override suspend fun updateUserProfile(userId: String, profileUpdates: Map<String, Any?>): Result<Unit> {
+    override suspend fun updateUserProfile(
+        userId: String,
+        profileUpdates: Map<String, Any?>
+    ): Result<Unit> {
         return try {
             Log.d(TAG, "Attempting to update profile for $userId with data: $profileUpdates")
             usersCollection.document(userId)
@@ -280,34 +292,32 @@ class FirebaseAuthRepository : AuthRepository {
     override suspend fun getAllUserProfilesFromFirestore(): Result<List<UserProfile>> {
         return try {
             Log.d(TAG, "Attempting to fetch all user profiles from Firestore collection 'users'")
-            // Get all documents from the 'users' collection
             val querySnapshot = usersCollection.get().await()
-            // Convert each document to a UserProfile object, filtering out nulls if conversion fails
             val userProfiles = querySnapshot.documents.mapNotNull { document ->
                 try {
                     document.toObject<UserProfile>()
                 } catch (e: Exception) {
                     Log.e(TAG, "Error converting document ${document.id} to UserProfile", e)
-                    null // Skip documents that fail conversion
+                    null
                 }
             }
             Log.d(TAG, "Fetched ${userProfiles.size} user profiles successfully.")
             Result.success(userProfiles)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to fetch all user profiles from Firestore", e)
-            Result.failure(e) // Propagate the exception (likely a permission error if rules aren't set)
+            Result.failure(e)
         }
     }
 
     override suspend fun blockUser(currentUserId: String, userIdToBlock: String): Result<Unit> {
         Log.d(TAG, "User $currentUserId attempting to block user $userIdToBlock")
         if (currentUserId == userIdToBlock) {
-            Log.w(TAG,"User cannot block themselves.")
+            Log.w(TAG, "User cannot block themselves.")
             return Result.failure(IllegalArgumentException("You cannot block yourself."))
         }
         return try {
             usersCollection.document(currentUserId)
-                .update("blockedUserIds", FieldValue.arrayUnion(userIdToBlock)) // Add ID to array
+                .update("blockedUserIds", FieldValue.arrayUnion(userIdToBlock))
                 .await()
             Log.d(TAG, "User $userIdToBlock blocked successfully by $currentUserId.")
             Result.success(Unit)
@@ -321,7 +331,7 @@ class FirebaseAuthRepository : AuthRepository {
         Log.d(TAG, "User $currentUserId attempting to unblock user $userIdToUnblock")
         return try {
             usersCollection.document(currentUserId)
-                .update("blockedUserIds", FieldValue.arrayRemove(userIdToUnblock)) // Remove ID from array
+                .update("blockedUserIds", FieldValue.arrayRemove(userIdToUnblock))
                 .await()
             Log.d(TAG, "User $userIdToUnblock unblocked successfully by $currentUserId.")
             Result.success(Unit)
@@ -338,8 +348,6 @@ class FirebaseAuthRepository : AuthRepository {
 
             if (!querySnapshot.isEmpty) {
                 val document = querySnapshot.documents.first()
-                // Assuming you have a UserProfile data class and your Firestore
-                // document can be directly mapped to it.
                 val userProfile = document.toObject(UserProfile::class.java)
                 Log.d(TAG, "Successfully fetched user profile: $userProfile")
                 Result.success(userProfile)
@@ -357,13 +365,12 @@ class FirebaseAuthRepository : AuthRepository {
         return try {
             Log.d(TAG, "Attempting to save FCM token for user $userId")
             val userDocRef = usersCollection.document(userId)
-            // Use set with merge option to only update/add the fcmToken field
             userDocRef.set(mapOf("fcmToken" to token), SetOptions.merge()).await()
             Log.d(TAG, "FCM Token saved/updated successfully for user $userId")
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "Error saving FCM token for user $userId", e)
-            Result.failure(e) // Propagate the error
+            Result.failure(e)
         }
     }
 
@@ -371,28 +378,24 @@ class FirebaseAuthRepository : AuthRepository {
     private fun getCommentsRef(issueId: Int) =
         db.collection("issue_discussions").document(issueId.toString()).collection("comments")
 
-    // --- Implement Comment Methods ---
-
     override fun getCommentsFlow(issueId: Int): Flow<List<Comment>> {
         Log.d(TAG, "Setting up comments flow for issueId: $issueId")
-        // Order by timestamp, ascending (oldest first)
         return getCommentsRef(issueId)
             .orderBy("timestamp", Query.Direction.ASCENDING)
-            .snapshots() // Listen for real-time updates
+            .snapshots()
             .map { snapshot ->
-                snapshot.toObjects<Comment>() // Convert query snapshot to list of Comment objects
+                snapshot.toObjects<Comment>()
             }
             .catch { e ->
                 Log.e(TAG, "Error getting comments flow for issue $issueId", e)
-                emit(emptyList()) // Emit empty list on error
+                emit(emptyList())
             }
     }
 
     override suspend fun addComment(issueId: Int, comment: Comment): Result<Unit> {
-        // Firestore automatically sets the @ServerTimestamp field
         return try {
             Log.d(TAG, "Adding comment for issue $issueId by ${comment.authorUid}")
-            getCommentsRef(issueId).add(comment).await() // add() generates ID
+            getCommentsRef(issueId).add(comment).await()
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "Error adding comment for issue $issueId", e)
@@ -400,11 +403,15 @@ class FirebaseAuthRepository : AuthRepository {
         }
     }
 
-    override suspend fun updateComment(issueId: Int, commentId: String, newText: String): Result<Unit> {
+    override suspend fun updateComment(
+        issueId: Int,
+        commentId: String,
+        newText: String
+    ): Result<Unit> {
         return try {
             Log.d(TAG, "Updating comment $commentId in issue $issueId")
             getCommentsRef(issueId).document(commentId)
-                .update("text", newText) // Update only the text field
+                .update("text", newText)
                 .await()
             Result.success(Unit)
         } catch (e: Exception) {

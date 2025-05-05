@@ -29,6 +29,9 @@ import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions // For merge()
 import com.google.firebase.firestore.ktx.toObject
 import com.google.firebase.storage.FirebaseStorage
+import com.zhenbang.otw.data.AuthRepository
+import com.zhenbang.otw.data.FirebaseAuthRepository
+import com.zhenbang.otw.data.UserProfile
 // import com.zhenbang.otw.BuildConfig // <-- Import BuildConfig if API key is stored there
 import com.zhenbang.otw.messagemodel.ChatMessage // Ensure this has the necessary fields
 import com.zhenbang.otw.messagemodel.MessageType
@@ -46,8 +49,11 @@ import java.util.concurrent.TimeUnit // For location request timeout
 class MessagingViewModel(
     application: Application,
     private val currentUserUid: String,
-    private val otherUserUid: String
+    private val otherUserUid: String,
+    private val authRepository: AuthRepository
 ) : AndroidViewModel(application) {
+
+    private val TAG = "MessagingViewModel" // Define the TAG for logging
 
     private val db = FirebaseFirestore.getInstance()
     private val storage = FirebaseStorage.getInstance()
@@ -86,6 +92,14 @@ class MessagingViewModel(
     private val _editingMessage = MutableStateFlow<ChatMessage?>(null)
     val editingMessage: StateFlow<ChatMessage?> = _editingMessage.asStateFlow()
 
+    private val _partnerProfile = MutableStateFlow<UserProfile?>(null) // Store full partner profile
+    val partnerProfile: StateFlow<UserProfile?> = _partnerProfile.asStateFlow()
+
+    private val _currentUserProfile = MutableStateFlow<UserProfile?>(null)
+
+    private val _isChatBlocked = MutableStateFlow(false) // Default to false
+    val isChatBlocked: StateFlow<Boolean> = _isChatBlocked.asStateFlow()
+
     // --- MediaRecorder ---
     private var mediaRecorder: MediaRecorder? = null
     private var currentAudioFilePath: String? = null
@@ -103,6 +117,8 @@ class MessagingViewModel(
             _error.value = "Cannot initialize chat: Invalid user IDs."
         } else {
             viewModelScope.launch {
+                fetchCurrentUserProfile()
+                fetchPartnerProfile()
                 val chatSetupSuccess = ensureChatDocumentExists()
                 if (chatSetupSuccess) {
                     Log.d("MessagingViewModel", "Chat document confirmed/created.")
@@ -112,6 +128,48 @@ class MessagingViewModel(
                     Log.e("MessagingViewModel", "Initialization failed: Could not ensure chat document exists.")
                 }
             }
+        }
+    }
+
+    private fun fetchCurrentUserProfile() {
+        viewModelScope.launch {
+            val result = authRepository.getUserProfile(currentUserUid)
+            if (result.isSuccess) {
+                _currentUserProfile.value = result.getOrNull()
+            } else {
+                Log.e("MessagingViewModel", "Failed to fetch current user profile", result.exceptionOrNull())
+                // Handle error - maybe prevent sending?
+            }
+        }
+    }
+
+    private fun fetchPartnerProfile() {
+        viewModelScope.launch {
+            val result = authRepository.getUserProfile(otherUserUid)
+            if (result.isSuccess) {
+                _partnerProfile.value = result.getOrNull()
+            } else {
+                Log.e("MessagingViewModel", "Failed to fetch partner profile", result.exceptionOrNull())
+                _partnerProfile.value = null // Set to null on error
+                // Handle error - maybe prevent sending?
+            }
+        }
+    }
+
+    private fun observeProfileUpdates() {
+        viewModelScope.launch {
+            // Combine the flows of both profiles
+            combine(_currentUserProfile, _partnerProfile) { currentUser, partnerUser ->
+                // Calculate block status whenever either profile updates
+                val iBlockedPartner = currentUser?.blockedUserIds?.contains(otherUserUid) == true
+                val partnerBlockedMe = partnerUser?.blockedUserIds?.contains(currentUserUid) == true
+                iBlockedPartner || partnerBlockedMe // Result is true if either block exists
+            }
+                .distinctUntilChanged() // Only emit when the block status actually changes
+                .collect { isBlocked ->
+                    Log.d("MessagingViewModel", "Block status updated: $isBlocked")
+                    _isChatBlocked.value = isBlocked // Update the state flow
+                }
         }
     }
 
@@ -154,7 +212,7 @@ class MessagingViewModel(
         } catch (e: Exception) {
             if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
                 Log.e("MessagingViewModel", "PERMISSION_DENIED updating chat metadata for $chatDocId. Check Firestore Rules!", e)
-                _error.value = "Error syncing chat status (Permissions)." // Potentially less intrusive error message
+                //_error.value = "Error syncing chat status (Permissions)." // Potentially less intrusive error message
             } else {
                 Log.e("MessagingViewModel", "Failed to update chat metadata for $chatDocId", e)
                 // Avoid overwriting specific user action errors
@@ -452,10 +510,12 @@ class MessagingViewModel(
     }
 
     fun sendMessage(text: String) {
+        if (_isChatBlocked.value) {
+            Log.w(TAG, "Attempted to send message, but chat is blocked.")
+            return
+        }
         val trimmedText = text.trim()
-        // Still allow sending empty text if replying
         if (trimmedText.isBlank() && _selectedMessageForReply.value == null) return
-
         val replyInfo = _selectedMessageForReply.value // Capture reply state before coroutine
 
         viewModelScope.launch { // Launch coroutine for potential async name fetch
@@ -480,8 +540,15 @@ class MessagingViewModel(
                 // updateChatMetadata(trimmedText, FieldValue.serverTimestamp()) // <-- REMOVED
                 cancelReply() // Clear reply state after sending attempt
             } catch (e: Exception) {
-                Log.e("MessagingViewModel", "Error sending text message", e); _error.value = "Failed to send message: ${e.localizedMessage}"
-            }
+                Log.e(TAG, "Error sending text message", e);
+                if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                    // Keep setting error for permission denied, as it confirms the block from backend
+                    //_error.value = "Cannot send message. User is blocked or has blocked you."
+                    Log.w(TAG, "Firestore PERMISSION_DENIED, forcing block status check/update.")
+                    _isChatBlocked.value = true // Force UI state update
+                } else {
+                    _error.value = "Failed to send message: ${e.localizedMessage}" // Set other errors
+                }            }
         }
     }
 
@@ -500,7 +567,7 @@ class MessagingViewModel(
         return try {
             val doc = db.collection("users").document(userId).get().await()
             // Prioritize username, fallback to name, then return null if neither exist
-            doc.getString("username") ?: doc.getString("name")
+            doc.getString("username") ?: doc.getString("displayName")
         } catch (e: Exception) {
             Log.e("MessagingViewModel", "Failed to fetch username for $userId", e)
             null // Return null on any exception during fetch
@@ -757,7 +824,8 @@ class MessagingViewModel(
         fun provideFactory(
             application: Application,
             currentUserUid: String,
-            otherUserUid: String
+            otherUserUid: String,
+            authRepository: AuthRepository = FirebaseAuthRepository() // Provide default implementation
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -768,7 +836,7 @@ class MessagingViewModel(
                         // Depending on app structure, either throw or handle this state
                         // throw IllegalArgumentException("User UIDs cannot be blank")
                     }
-                    return MessagingViewModel(application, currentUserUid, otherUserUid) as T
+                    return MessagingViewModel(application, currentUserUid, otherUserUid, authRepository) as T
                 }
                 throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
             }

@@ -1,8 +1,11 @@
 package com.zhenbang.otw.tasks
 
+import android.widget.Toast
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -13,7 +16,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddTask
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
@@ -46,16 +53,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
+import com.zhenbang.otw.database.SubTask
 import com.zhenbang.otw.database.Task
 import com.zhenbang.otw.database.TaskAssignment
 import com.zhenbang.otw.departments.Screen
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun TaskDetailScreen(navController: NavController, taskViewModel: TaskViewModel, taskId: Int) {
@@ -63,6 +75,8 @@ fun TaskDetailScreen(navController: NavController, taskViewModel: TaskViewModel,
     val assignedUsers: List<TaskAssignment> by taskViewModel.getAssignedUsersForTask(taskId)
         .collectAsState(initial = emptyList())
     val currentUserEmail = FirebaseAuth.getInstance().currentUser?.email
+    val subTasks: List<SubTask> by taskViewModel.getSubTasksByTaskId(taskId)
+        .collectAsState(initial = emptyList())
     val canEdit by taskViewModel.canEditTask(taskId, currentUserEmail)
         .collectAsState(initial = false)
 
@@ -102,37 +116,64 @@ fun TaskDetailScreen(navController: NavController, taskViewModel: TaskViewModel,
             }
         }
     ) { paddingValues ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .padding(paddingValues)
                 .fillMaxSize()
                 .padding(32.dp),
+            contentPadding = PaddingValues(bottom = 50.dp)
         ) {
             if (task != null) {
-                Text(text = "${task?.taskTitle}", fontSize = 36.sp, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(18.dp))
-                Text(
-                    text = "${task?.taskDescription}",
-                    fontSize = 18.sp,
-                    modifier = Modifier.height(500.dp)
-                )
-                HorizontalDivider(thickness = 4.dp, color = Color.Black)
+                item {
+                    Text(text = "${task?.taskTitle}", fontSize = 36.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(18.dp))
+                    Text(text = "${task?.taskDescription}", fontSize = 18.sp, modifier = Modifier.padding(bottom = 10.dp))
+                }
+
+                if (subTasks.isNotEmpty()) {
+                    itemsIndexed(subTasks) { index, subTask ->
+                        HorizontalDivider(modifier = Modifier.padding(top = 4.dp), thickness = 2.dp, color = Color.LightGray)
+                        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                            Text(
+                                text = "${if (subTask.isCompleted) "✓" else "X"} ${index + 1}. ${subTask.subTaskTitle}",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (subTask.isCompleted) Color.Green else Color.Red,
+                                modifier = Modifier.padding(bottom = 2.dp)
+                            )
+                            Text(
+                                text = subTask.subTaskDesc,
+                                fontSize = 15.sp,
+                                overflow = TextOverflow.Clip,
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            )
+                        }
+                    }
+                }
+
+                item {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), thickness = 3.dp, color = Color.Black)
+                }
+
                 if (assignedUsers.isNotEmpty()) {
-                    Column {
-                        assignedUsers.forEach { assignment ->
+                    items(assignedUsers) { assignment ->
+                        Column {
                             Text(
                                 text = assignment.userEmail,
                                 modifier = Modifier.padding(8.dp)
-                            ) // Display the user's email
+                            )
                             HorizontalDivider(thickness = 2.dp, color = Color.LightGray)
                         }
                     }
                 } else {
-                    Text(text = "No one is assigned to this task yet.")
+                    item {
+                        Text(text = "No one is assigned to this task yet.")
+                    }
                 }
-
             } else {
-                Text(text = "Loading task details...")
+                item {
+                    Text(text = "Loading task details...")
+                }
             }
         }
     }
@@ -145,17 +186,25 @@ fun AddEditTaskScreen(
     taskViewModel: TaskViewModel,
     taskId: Int
 ) {
+    val context = LocalContext.current
     var title by rememberSaveable { mutableStateOf("") }
     var description by rememberSaveable { mutableStateOf("") }
     val taskToEdit by taskViewModel.getTaskById(taskId).collectAsState(initial = null)
 
-    // State to hold the list of users in the department
-    val deptUsers by taskViewModel.getDeptUsersByDepartmentId(departmentId) // Use taskViewModel
+    val deptUsers by taskViewModel.getDeptUsersByDepartmentId(departmentId)
         .collectAsState(initial = emptyList())
-    var showAssignDialog by rememberSaveable { mutableStateOf(false) } // New state for the dialog
+    var showAssignDialog by rememberSaveable { mutableStateOf(false) }
     var selectedUsersToAssign =
-        remember { mutableStateListOf<String>() } // Emails of users to assign
+        remember { mutableStateListOf<String>() }
     val currentUserEmail = FirebaseAuth.getInstance().currentUser?.email
+
+    var showSubTaskDialog by rememberSaveable { mutableStateOf(false) }
+    var editingSubTaskIndex by rememberSaveable { mutableStateOf(-1) }
+    var subTaskTitle by rememberSaveable { mutableStateOf("") }
+    var subTaskDesc by rememberSaveable { mutableStateOf("") }
+    var subTasks = remember { mutableStateListOf<SubTask>() }
+    var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
+
 
     var assignSearchQuery by rememberSaveable { mutableStateOf("") }
     val filteredDeptUsers = remember(deptUsers, assignSearchQuery) {
@@ -174,12 +223,18 @@ fun AddEditTaskScreen(
                     val assignedEmails = assignedTaskAssignments.map { it.userEmail }
                     selectedUsersToAssign.clear()
                     selectedUsersToAssign.addAll(assignedEmails)
+
+                    subTasks.clear()
+                    val fetchedSubTasks = taskViewModel.getSubTasksByTaskId(taskId).firstOrNull() ?: emptyList()
+                    subTasks.addAll(fetchedSubTasks)
                 }
             } else {
                 selectedUsersToAssign.clear()
+                subTasks.clear()
             }
         } ?: run {
             selectedUsersToAssign.clear()
+            subTasks.clear()
         }
     }
 
@@ -212,6 +267,10 @@ fun AddEditTaskScreen(
                         Icon(Icons.Filled.Delete, contentDescription = "Delete Task")
                     }
                 }
+                IconButton(onClick = { showSubTaskDialog = true }
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = "Add Task")
+                }
                 IconButton(onClick = {
                     if (title.isNotBlank() && description.isNotBlank()) {
                         val task = Task(
@@ -222,11 +281,13 @@ fun AddEditTaskScreen(
                             creatorEmail = currentUserEmail
                         )
                         if (taskId != -1) {
-                            taskViewModel.updateTask(task, selectedUsersToAssign)
+                            taskViewModel.updateTask(task, selectedUsersToAssign, subTasks)
                         } else {
-                            taskViewModel.insertTask(task, selectedUsersToAssign)
+                            taskViewModel.insertTask(task, selectedUsersToAssign, subTasks)
                         }
                         navController.popBackStack()
+                    } else {
+                        Toast.makeText(context, "Please enter both title and description", Toast.LENGTH_SHORT).show()
                     }
                 }) {
                     Icon(Icons.Filled.Check, contentDescription = "Save Task")
@@ -239,44 +300,100 @@ fun AddEditTaskScreen(
             }
         }
     ) { paddingValues ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .padding(paddingValues)
                 .fillMaxSize()
                 .padding(16.dp),
+            contentPadding = PaddingValues(bottom = 60.dp)
         ) {
-            val textFieldColors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color.Transparent,
-                unfocusedBorderColor = Color.Transparent,
-            )
+            item {
+                val textFieldColors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent,
+                )
 
-            OutlinedTextField(
-                value = title,
-                onValueChange = { title = it },
-                placeholder = { Text("Title", fontWeight = FontWeight.Bold, fontSize = 36.sp) },
-                modifier = Modifier
-                    .fillMaxWidth(),
-                textStyle = TextStyle(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 36.sp
-                ),
-                colors = textFieldColors
-            )
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    placeholder = { Text("Title", fontWeight = FontWeight.Bold, fontSize = 36.sp) },
+                    modifier = Modifier.fillMaxWidth(),
+                    textStyle = TextStyle(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 36.sp
+                    ),
+                    colors = textFieldColors
+                )
 
-            Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-            OutlinedTextField(
-                value = description,
-                onValueChange = { description = it },
-                placeholder = { Text("Enter your task here.", fontSize = 18.sp) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(400.dp),
-                textStyle = TextStyle(
-                    fontSize = 18.sp
-                ),
-                colors = textFieldColors
-            )
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    placeholder = { Text("Enter task description.", fontSize = 18.sp) },
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    textStyle = TextStyle(
+                        fontSize = 18.sp
+                    ),
+                    colors = textFieldColors
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            items(subTasks) { subTask ->
+                val index = subTasks.indexOf(subTask)
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 10.dp), thickness = 2.dp, color = Color.LightGray)
+                Row(
+                    verticalAlignment = Alignment.Top, // Changed to Top
+                    modifier = Modifier
+                        .padding(vertical = 4.dp)
+                        .clickable {
+                            editingSubTaskIndex = index
+                            subTaskTitle = subTask.subTaskTitle
+                            subTaskDesc = subTask.subTaskDesc
+                            showSubTaskDialog = true
+                        },
+
+                    ) {
+                    Column {
+                        Checkbox(
+                            checked = subTask.isCompleted,
+                            onCheckedChange = { isChecked ->
+                                val updatedSubTask = subTask.copy(isCompleted = isChecked)
+                                subTasks[index] = updatedSubTask
+                                taskViewModel.updateSubTaskCompletion(updatedSubTask, isChecked)
+                            }
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("${index + 1}. ${subTask.subTaskTitle}")
+                            IconButton(onClick = { subTasks.removeAt(index) }) {
+                                Icon(
+                                    Icons.Filled.Delete,
+                                    contentDescription = "Delete Subtask",
+                                    tint = Color.Red
+                                )
+                            }
+                        }
+                        Text(text = subTask.subTaskDesc, modifier = Modifier.padding(end = 12.dp, bottom = 10.dp))
+                    }
+                }
+            }
+            item {
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 10.dp),
+                    thickness = 3.dp,
+                    color = Color.Black
+                )
+            }
         }
 
         if (showAssignDialog) {
@@ -346,6 +463,80 @@ fun AddEditTaskScreen(
                 },
                 dismissButton = {
                     Button(onClick = { showAssignDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        if (showSubTaskDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    showSubTaskDialog = false
+                    editingSubTaskIndex = -1
+                    subTaskTitle = ""
+                    subTaskDesc = ""
+                },
+                title = { Text(if (editingSubTaskIndex == -1) "Add Sub-Task" else "Edit Sub-Task") },
+                text = {
+                    Column {
+                        OutlinedTextField(
+                            value = subTaskTitle,
+                            onValueChange = { subTaskTitle = it },
+                            label = { Text("Sub-Task Title") },
+                            placeholder = { Text("Sub-Task Title") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = subTaskDesc,
+                            onValueChange = { subTaskDesc = it },
+                            label = { Text("Sub-Task Description") },
+                            placeholder = { Text("Sub-Task Description") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            if (subTaskTitle.isNotBlank() && subTaskDesc.isNotBlank()) {
+                                if (editingSubTaskIndex != -1) {
+                                    // Edit existing sub-task
+                                    val updatedSubTask = subTasks[editingSubTaskIndex].copy(
+                                        subTaskTitle = subTaskTitle,
+                                        subTaskDesc = subTaskDesc
+                                    )
+                                    subTasks[editingSubTaskIndex] = updatedSubTask
+                                } else {
+                                    // Add new sub-task
+                                    val newSubTask = SubTask(
+                                        taskId = taskId,
+                                        subTaskTitle = subTaskTitle,
+                                        subTaskDesc = subTaskDesc,
+                                        isCompleted = false,
+                                    )
+                                    subTasks.add(newSubTask)
+                                }
+                                showSubTaskDialog = false
+                                editingSubTaskIndex = -1
+                                subTaskTitle = ""
+                                subTaskDesc = ""
+                            } else {
+                                Toast.makeText(context, "Please enter both title and description for the sub-task", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    ) {
+                        Text("Save")
+                    }
+                },
+                dismissButton = {
+                    Button(onClick = {
+                        showSubTaskDialog = false
+                        editingSubTaskIndex = -1
+                        subTaskTitle = ""
+                        subTaskDesc = ""
+                    }) {
                         Text("Cancel")
                     }
                 }

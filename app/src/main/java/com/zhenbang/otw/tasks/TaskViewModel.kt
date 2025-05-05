@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.zhenbang.otw.database.DeptUser
+import com.zhenbang.otw.database.SubTask
 import com.zhenbang.otw.database.Task
 import com.zhenbang.otw.database.TaskAssignment
 import kotlinx.coroutines.flow.Flow
@@ -13,12 +14,12 @@ import kotlinx.coroutines.launch
 
 class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
 
-    fun insertTask(task: Task, userEmails: List<String>) = viewModelScope.launch {
-        repository.insertTask(task, userEmails)
+    fun insertTask(task: Task, userEmails: List<String>, subTasks: List<SubTask>) = viewModelScope.launch {
+        repository.insertTask(task, userEmails, subTasks)
     }
 
-    fun updateTask(task: Task, userEmails: List<String>) = viewModelScope.launch {
-        repository.updateTask(task, userEmails)
+    fun updateTask(task: Task, userEmails: List<String>, subTasks: List<SubTask>) = viewModelScope.launch {
+        repository.updateTask(task, userEmails, subTasks)
     }
 
     fun updateTaskCompletion(task: Task, isCompleted: Boolean) = viewModelScope.launch {
@@ -60,6 +61,19 @@ class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
                 task.creatorEmail == currentUserEmail || assignedUsers.any { it.userEmail == currentUserEmail }
             }
         }
+    }
+
+
+    fun updateSubTaskCompletion(subTask: SubTask, isCompleted: Boolean) = viewModelScope.launch {  // Added updateSubTask
+        repository.updateSubTaskCompletion(subTask, isCompleted)
+    }
+
+    fun getSubTasksByTaskId(taskId: Int): Flow<List<SubTask>> {
+        return repository.getSubTasksByTaskId(taskId)
+    }
+
+    fun getSubTaskById(subTaskId: Int): Flow<SubTask?> {
+        return repository.getSubTaskById(subTaskId)
     }
 
     class Factory(private val context: Context) : ViewModelProvider.Factory {

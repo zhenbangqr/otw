@@ -4,26 +4,20 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.zhenbang.otw.database.Issue // Import Issue
+import com.zhenbang.otw.database.Issue
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 
 class IssueViewModel(private val repository: IssueRepository) : ViewModel() {
 
-    // Get issues for a specific department
     fun getIssuesByDepartmentId(departmentId: Int): Flow<List<Issue>> {
         return repository.getIssuesByDepartmentId(departmentId)
     }
 
-    // Get a specific issue by its ID
     fun getIssueById(issueId: Int): Flow<Issue?> {
         return repository.getIssueById(issueId)
     }
 
-    /**
-     * Inserts a new issue or updates an existing one based on issueId.
-     * Mirrors the TaskViewModel's insertTask which uses OnConflictStrategy.REPLACE in the DAO.
-     */
     fun upsertIssue(issue: Issue) = viewModelScope.launch {
         val issueToSave = if (issue.issueId == 0) {
             issue.copy(
@@ -41,12 +35,10 @@ class IssueViewModel(private val repository: IssueRepository) : ViewModel() {
         repository.insertIssue(issueToSave)
     }
 
-    // Delete an issue
     fun deleteIssue(issue: Issue) = viewModelScope.launch {
         repository.deleteIssue(issue)
     }
 
-    // Factory for creating the ViewModel with dependencies
     class Factory(private val context: Context) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(IssueViewModel::class.java)) {

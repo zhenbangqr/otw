@@ -18,10 +18,8 @@ import kotlinx.coroutines.launch
 import java.io.IOException
 import java.lang.IllegalStateException
 
-
 class VerificationViewModel(application: Application) : AndroidViewModel(application) {
 
-    // Instantiate repository (Ideally use Dependency Injection)
     private val authRepository: AuthRepository = FirebaseAuthRepository()
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
 
@@ -72,7 +70,7 @@ class VerificationViewModel(application: Application) : AndroidViewModel(applica
                 Log.d("VerificationViewModel", "Verification status checked: $verifiedStatus")
 
                 if (verifiedStatus) {
-                    isVerified = true // Update state for UI effect/navigation
+                    isVerified = true
 
                     // Get current user info needed for saving
                     val currentUser = firebaseAuth.currentUser
@@ -80,34 +78,47 @@ class VerificationViewModel(application: Application) : AndroidViewModel(applica
                     val userEmail = currentUser?.email
 
                     if (userId != null && userEmail != null) {
-                        Log.d("VerificationViewModel", "User verified, attempting to save data for $userId")
-                        val saveResult = authRepository.saveUserDataAfterVerification(userId, userEmail)
+                        Log.d(
+                            "VerificationViewModel",
+                            "User verified, attempting to save data for $userId"
+                        )
+                        val saveResult =
+                            authRepository.saveUserDataAfterVerification(userId, userEmail)
                         saveResult.onSuccess {
-                            Log.d("VerificationViewModel", "User data saved successfully after verification.")
+                            Log.d(
+                                "VerificationViewModel",
+                                "User data saved successfully after verification."
+                            )
                         }.onFailure { saveError ->
-                            Log.e("VerificationViewModel", "Failed to save user data after verification", saveError)
-                            _uiState.value = VerificationUiState.Error("Email verified, but failed to save profile data. Please try logging in.")
+                            Log.e(
+                                "VerificationViewModel",
+                                "Failed to save user data after verification",
+                                saveError
+                            )
+                            _uiState.value =
+                                VerificationUiState.Error("Email verified, but failed to save profile data. Please try logging in.")
                             isVerified = false
                         }
                     } else {
-                        Log.e("VerificationViewModel", "User is verified but user ID or email is null. Cannot save data.")
-                        _uiState.value = VerificationUiState.Error("Verification check error: User info missing.")
+                        Log.e(
+                            "VerificationViewModel",
+                            "User is verified but user ID or email is null. Cannot save data."
+                        )
+                        _uiState.value =
+                            VerificationUiState.Error("Verification check error: User info missing.")
                         isVerified = false
                     }
                 } else {
-                    // --- Verification FAILED ---
                     isVerified = false
                 }
 
             }.onFailure { exception ->
-                // --- Verification Check FAILED (Error during check) ---
                 Log.e("VerificationViewModel", "Checking status failed", exception)
                 val errorMsg = mapVerificationError(exception)
                 _uiState.value = VerificationUiState.Error(errorMsg)
-                isVerified = false // Indicate check failed
+                isVerified = false
             }
 
-            // Reset UI state back to Idle *unless* an error occurred during check/save
             if (_uiState.value !is VerificationUiState.Error) {
                 _uiState.value = VerificationUiState.Idle
             }
@@ -133,10 +144,9 @@ class VerificationViewModel(application: Application) : AndroidViewModel(applica
     /**
      * Resets the entire UI state back to Idle. Useful if navigating away.
      */
-    fun resetVerificationStateToIdle(){
+    fun resetVerificationStateToIdle() {
         _uiState.value = VerificationUiState.Idle
     }
-
 
     /**
      * Maps common exceptions from verification operations to user-friendly messages.
@@ -144,9 +154,9 @@ class VerificationViewModel(application: Application) : AndroidViewModel(applica
     private fun mapVerificationError(exception: Throwable): String {
         return when (exception) {
             is IOException -> "Network error. Please check connection."
-            is IllegalStateException -> exception.message ?: "Cannot perform action now. Are you signed in?" // Often happens if currentUser is null
+            is IllegalStateException -> exception.message
+                ?: "Cannot perform action now. Are you signed in?"
             else -> "Error: ${exception.message ?: "An unknown error occurred."}"
         }
     }
 }
-    

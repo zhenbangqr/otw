@@ -26,7 +26,6 @@ import kotlinx.coroutines.launch
 
 
 class LiveLocationViewModel(application: Application) : AndroidViewModel(application) {
-
     // --- Dependencies ---
     private val locationHelper = LocationHelper(application.applicationContext)
     private val auth = FirebaseAuth.getInstance()

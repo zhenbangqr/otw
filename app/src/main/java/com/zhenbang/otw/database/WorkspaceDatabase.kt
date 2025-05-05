@@ -6,8 +6,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [Department::class, Task::class, Issue::class, DeptUser::class, TaskAssignment::class],
-    version = 9,
+    entities = [Department::class, Task::class, Issue::class, DeptUser::class, TaskAssignment::class, SubTask::class],
+    version = 10,
     exportSchema = false
 )
 abstract class WorkspaceDatabase : RoomDatabase() {
@@ -16,6 +16,7 @@ abstract class WorkspaceDatabase : RoomDatabase() {
     abstract fun issueDao(): IssueDao
     abstract fun deptUserDao(): DeptUserDao
     abstract fun taskAssignmentDao(): TaskAssignmentDao
+    abstract fun subTaskDao(): SubTaskDao
 
     companion object {
 
@@ -118,6 +119,25 @@ abstract class WorkspaceDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `subTask` (
+                        `subTaskId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `subTaskTitle` TEXT NOT NULL,
+                        `subTaskDesc` TEXT NOT NULL,
+                        `isCompleted` INTEGER NOT NULL,
+                        `taskId` INTEGER NOT NULL,
+                        `creationTimeStamp` INTEGER NOT NULL,
+                        FOREIGN KEY(`taskId`) REFERENCES `tasks`(`taskId`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                """.trimIndent()
+                )
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_subTask_taskId` ON `subTask` (`taskId`)")
+            }
+        }
+
         @Volatile
         private var INSTANCE: WorkspaceDatabase? = null
 
@@ -136,7 +156,8 @@ abstract class WorkspaceDatabase : RoomDatabase() {
                         MIGRATION_5_6,
                         MIGRATION_6_7,
                         MIGRATION_7_8,
-                        MIGRATION_8_9
+                        MIGRATION_8_9,
+                        MIGRATION_9_10
                     )
                     .build()
                 INSTANCE = instance

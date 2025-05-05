@@ -1,6 +1,7 @@
 // Ensure this package matches where your other UI screens are
 package com.zhenbang.otw.profile
 
+import android.content.Intent
 import android.net.Uri // Import Uri
 import android.widget.Toast // For placeholder clicks
 import androidx.activity.compose.rememberLauncherForActivityResult // Import launcher
@@ -43,9 +44,9 @@ import coil.compose.AsyncImage // Import Coil
 import coil.request.ImageRequest
 import com.google.firebase.auth.FirebaseAuth
 import com.zhenbang.otw.R
-// Make sure ProfileViewModel is in the correct package
-import com.zhenbang.otw.profile.ProfileViewModel // Import ProfileViewModel
-import com.zhenbang.otw.profile.ProfileStatus // Import ProfileStatus
+import android.content.ActivityNotFoundException // Import for Intent error handling
+import android.os.Build // Import Build for specific Intent actions if needed later
+import android.provider.Settings // Import Settings for Intent action
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -54,6 +55,8 @@ fun ProfileScreen(
     profileViewModel: ProfileViewModel,
     onLogout: () -> Unit,
     onNavigateBack: () -> Unit,
+    onNavigateToHelp: () -> Unit,
+    onNavigateToChatTheme: () -> Unit,
     onNavigateToLanguageSettings: () -> Unit,
     onNavigateToManageAccount: () -> Unit,
     onNavigateToPrivacy: () -> Unit
@@ -86,6 +89,31 @@ fun ProfileScreen(
         }
     }
 
+    fun openNotificationSettings() {
+        try {
+            val intent = Intent().apply {
+                // Use the specific action for app notification settings
+                action = Settings.ACTION_APP_NOTIFICATION_SETTINGS
+                // Provide the package name of YOUR app
+                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                // Optional: For older versions, channel ID could be added, but EXTRA_APP_PACKAGE is standard
+                // putExtra(Settings.EXTRA_CHANNEL_ID, "your_channel_id") // If targeting a specific channel
+            }
+            context.startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(context, "Cannot open notification settings.", Toast.LENGTH_SHORT).show()
+            // Fallback: Open general app info screen if specific notification settings fail
+            try {
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                intent.data = Uri.parse("package:${context.packageName}")
+                context.startActivity(intent)
+            } catch (e2: ActivityNotFoundException) {
+                Toast.makeText(context, "Cannot open app settings.", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            Toast.makeText(context, "Error opening settings.", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -128,11 +156,10 @@ fun ProfileScreen(
                 // Settings Sections
                 item { SettingsListItem(title = "Account", primaryText = "Manage Account") { onNavigateToManageAccount() } }
                 item { SettingsListItem(title = "Privacy", primaryText = "Block users") { onNavigateToPrivacy() } }
-//                item { SettingsListItem(title = "Avatar", primaryText = "Change profile picture") { imagePickerLauncher.launch("image/*") } }
-                item { SettingsListItem(title = "Chats", primaryText = "Themes") { Toast.makeText(context, "Themes clicked", Toast.LENGTH_SHORT).show() } }
-                item { SettingsListItem(title = "Notifications", primaryText = "Message, groups and call tones") { Toast.makeText(context, "Notifications clicked", Toast.LENGTH_SHORT).show() } }
+                item { SettingsListItem(title = "Chats", primaryText = "Themes") { onNavigateToChatTheme() } }
+                item { SettingsListItem(title = "Notifications", primaryText = "App Notification") { openNotificationSettings() } }
                 item { SettingsListItem(title = "App language", primaryText = "English") { onNavigateToLanguageSettings() } }
-                item { SettingsListItem(title = "Help", primaryText = "SOS!") { Toast.makeText(context, "Help clicked", Toast.LENGTH_SHORT).show() } }
+                item { SettingsListItem(title = "Help", primaryText = "Feedback") { onNavigateToHelp() } }
 
 
                 // Logout Button at the bottom
