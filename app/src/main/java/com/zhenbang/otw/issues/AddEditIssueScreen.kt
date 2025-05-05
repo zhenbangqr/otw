@@ -1,12 +1,31 @@
 package com.zhenbang.otw.issues
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -14,10 +33,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel // Import viewModel
 import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
-import com.zhenbang.otw.database.Issue // Import your Issue entity
+import com.zhenbang.otw.database.Issue
 
 @Composable
 fun AddEditIssueScreen(
@@ -32,15 +50,11 @@ fun AddEditIssueScreen(
     val issueToEditState by issueViewModel.getIssueById(issueId).collectAsState(initial = null)
     val issueToEdit = remember(issueToEditState) { issueToEditState }
 
-
-    // Pre-fill fields if editing an existing issue
     LaunchedEffect(issueToEdit) {
-        // Only pre-fill if issueToEdit is not null and issueId indicates editing
         if (issueToEdit != null && issueId != -1) {
             title = issueToEdit.issueTitle
             description = issueToEdit.issueDescription
         } else {
-            // Reset fields if navigating back to 'Add New' from 'Edit' or if issue data is cleared
             title = ""
             description = ""
         }
@@ -64,7 +78,6 @@ fun AddEditIssueScreen(
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.weight(1f).padding(start = 16.dp)
                 )
-                // Show delete button only when editing
                 if (issueId != -1) {
                     IconButton(onClick = {
                         issueToEdit?.let { issueToDelete ->
@@ -93,7 +106,6 @@ fun AddEditIssueScreen(
                     issueViewModel.upsertIssue(issue)
                     navController.popBackStack()
                 }
-                // Optional: Add user feedback (e.g., Toast/Snackbar) if fields are blank
             }) {
                 Icon(Icons.Filled.Check, contentDescription = "Save Issue")
             }
@@ -105,17 +117,15 @@ fun AddEditIssueScreen(
                     .fillMaxSize()
                     .padding(16.dp),
             ) {
-                // Style similar to AddEditTaskScreen
                 val textFieldColors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color.Transparent,
                     unfocusedBorderColor = Color.Transparent,
-                    // Add other color customizations if needed
                 )
 
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    placeholder = { Text("Issue Title", fontWeight = FontWeight.Bold, fontSize = 28.sp ) }, // Adjust size
+                    placeholder = { Text("Issue Title", fontWeight = FontWeight.Bold, fontSize = 28.sp ) },
                     modifier = Modifier.fillMaxWidth(),
                     textStyle = TextStyle(
                         fontWeight = FontWeight.Bold,

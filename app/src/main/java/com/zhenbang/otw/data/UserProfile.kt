@@ -2,10 +2,6 @@ package com.zhenbang.otw.data
 
 import com.google.firebase.Timestamp
 
-/**
- * Represents the user profile data stored in Firestore.
- * Make fields nullable if they are optional.
- */
 data class UserProfile(
     val uid: String = "",
     val email: String = "",

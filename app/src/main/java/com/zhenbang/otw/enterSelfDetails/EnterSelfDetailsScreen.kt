@@ -1,15 +1,43 @@
 package com.zhenbang.otw.enterSelfDetails
 
-import androidx.compose.foundation.BorderStroke // *** Import BorderStroke ***
-import androidx.compose.foundation.layout.*
+import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.SolidColor // *** Import SolidColor ***
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -17,11 +45,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.zhenbang.otw.enterSelfDetails.EnterSelfDetailsViewModel // Use correct ViewModel name
-import com.zhenbang.otw.enterSelfDetails.SelfDetailsUiState // Keep UiState name or rename if needed
-import android.widget.Toast
 import java.text.SimpleDateFormat
-import java.util.* // Import Date, Calendar, Locale, TimeZone
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,7 +62,8 @@ fun EnterSelfDetailsScreen(
 
     val datePickerState = rememberDatePickerState(
         initialSelectedDateMillis = uiState.birthdateMillis,
-        yearRange = (Calendar.getInstance().get(Calendar.YEAR) - 100)..(Calendar.getInstance().get(Calendar.YEAR))
+        yearRange = (Calendar.getInstance().get(Calendar.YEAR) - 100)..(Calendar.getInstance()
+            .get(Calendar.YEAR))
     )
 
     val confirmEnabled by remember {
@@ -53,7 +81,7 @@ fun EnterSelfDetailsScreen(
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let {
             Toast.makeText(context, it, Toast.LENGTH_LONG).show()
-            selfDetailsViewModel.clearError() // Clear error after showing
+            selfDetailsViewModel.clearError()
         }
     }
 
@@ -83,7 +111,6 @@ fun EnterSelfDetailsScreen(
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Display Name Field (Required)
             OutlinedTextField(
                 value = uiState.displayName,
                 onValueChange = { selfDetailsViewModel.updateTextField("displayName", it) },
@@ -96,7 +123,6 @@ fun EnterSelfDetailsScreen(
             )
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Phone Number Field (Required)
             OutlinedTextField(
                 value = uiState.phoneNumber,
                 onValueChange = { selfDetailsViewModel.updateTextField("phoneNumber", it) },
@@ -109,15 +135,15 @@ fun EnterSelfDetailsScreen(
             )
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Birthdate Selection (Required)
-            val isBirthdateError = uiState.errorMessage?.contains("birthdate", ignoreCase = true) == true
+            val isBirthdateError =
+                uiState.errorMessage?.contains("birthdate", ignoreCase = true) == true
             OutlinedButton(
                 onClick = { selfDetailsViewModel.showDatePicker(true) },
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 18.dp),
                 border = BorderStroke(
                     width = 1.dp,
-                    color = if (isBirthdateError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline // Use appropriate colors
+                    color = if (isBirthdateError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline
                 )
             ) {
                 Row(
@@ -125,28 +151,33 @@ fun EnterSelfDetailsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Birthdate *", color = if(isBirthdateError) MaterialTheme.colorScheme.error else LocalContentColor.current )
+                    Text(
+                        "Birthdate *",
+                        color = if (isBirthdateError) MaterialTheme.colorScheme.error else LocalContentColor.current
+                    )
                     Text(
                         selectedDateString,
-                        color = if (uiState.birthdateMillis == null && !isBirthdateError) LocalContentColor.current.copy(alpha = 0.6f) else LocalContentColor.current
+                        color = if (uiState.birthdateMillis == null && !isBirthdateError) LocalContentColor.current.copy(
+                            alpha = 0.6f
+                        ) else LocalContentColor.current
                     )
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Bio Field (Optional)
             OutlinedTextField(
                 value = uiState.bio,
                 onValueChange = { selfDetailsViewModel.updateTextField("bio", it) },
                 label = { Text("Bio (Optional)") },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 100.dp),
                 readOnly = uiState.isLoading,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 maxLines = 4
             )
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Save Button
             Button(
                 onClick = { selfDetailsViewModel.saveDetails() },
                 enabled = !uiState.isLoading,
@@ -163,11 +194,11 @@ fun EnterSelfDetailsScreen(
                 }
             }
 
-            // Display general error messages if needed
             uiState.errorMessage?.let { error ->
                 if (!error.contains("Display Name", ignoreCase = true) &&
                     !error.contains("phone number", ignoreCase = true) &&
-                    !error.contains("birthdate", ignoreCase = true)) {
+                    !error.contains("birthdate", ignoreCase = true)
+                ) {
                     Text(
                         text = error,
                         color = MaterialTheme.colorScheme.error,
@@ -180,7 +211,6 @@ fun EnterSelfDetailsScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Logout Button
             TextButton(
                 onClick = onLogout,
                 modifier = Modifier.padding(top = 16.dp)
@@ -188,10 +218,9 @@ fun EnterSelfDetailsScreen(
                 Text("Log Out")
             }
 
-        } // End Column
-    } // End Scaffold
+        }
+    }
 
-    // --- Date Picker Dialog ---
     if (uiState.showDatePicker) {
         DatePickerDialog(
             onDismissRequest = { selfDetailsViewModel.showDatePicker(false) },

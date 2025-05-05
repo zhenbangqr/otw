@@ -11,4 +11,3 @@ data class Department(
     val imageUrl: String? = null,
     val creatorEmail: String? = null,
 )
-

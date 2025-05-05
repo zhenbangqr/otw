@@ -19,11 +19,6 @@ import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 import net.openid.appauth.AuthorizationServiceConfiguration
 
-/**
- * ViewModel responsible for handling the OAuth 2.0 authentication flow using AppAuth,
- * specifically configured for Google Sign-In.
- * (Updated to remove browser end session attempt - Recommended Fix)
- */
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val TAG = "AuthViewModel"
     private val prefsFile = "auth_prefs_secure"
@@ -72,16 +67,17 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private val clientId = "257673197744-cjo7foidi09i4qo1iqhje5lb1ihhp820.apps.googleusercontent.com"
+    private val clientId =
+        "257673197744-cjo7foidi09i4qo1iqhje5lb1ihhp820.apps.googleusercontent.com"
     private val redirectUri = Uri.parse("com.zhenbang.otw:/oauth2redirect")
     private val scope = "openid profile email"
 
-    // Google's endpoints (Removed endSessionEndpoint)
+    // Google's endpoints
     private val serviceConfig = AuthorizationServiceConfiguration(
-        Uri.parse("https://accounts.google.com/o/oauth2/v2/auth"), // authorizationEndpoint
-        Uri.parse("https://oauth2.googleapis.com/token"),          // tokenEndpoint
-        null, // registrationEndpoint (Optional)
-        null  // *** Set endSessionEndpoint to null ***
+        Uri.parse("https://accounts.google.com/o/oauth2/v2/auth"),
+        Uri.parse("https://oauth2.googleapis.com/token"),
+        null,
+        null
     )
 
     /** Builds the AppAuth AuthorizationRequest */
@@ -126,6 +122,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 Log.d(TAG, "Auth response received, proceeding to token exchange.")
                 exchangeCodeForToken(resp)
             }
+
             ex != null -> {
                 Log.e(TAG, "Auth response error: ${ex.error} - ${ex.errorDescription}", ex)
                 _userAuthState.value = UserAuthState(
@@ -134,6 +131,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     error = "Authorization Failed: ${ex.errorDescription ?: ex.error ?: "Unknown error"} [${ex.code}]"
                 )
             }
+
             else -> {
                 Log.w(TAG, "Auth cancelled by user or unknown issue.")
                 _userAuthState.value = UserAuthState(
@@ -173,8 +171,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
             } catch (e: AuthorizationException) {
                 Log.e(TAG, "Token exchange failed: ${e.error} - ${e.errorDescription}", e)
-                authState.update(null as TokenResponse?, e) // Update internal state with error
-                storeAuthState(authState) // Store state even with error
+                authState.update(null as TokenResponse?, e)
+                storeAuthState(authState)
                 _userAuthState.value = UserAuthState(
                     isLoading = false,
                     isAuthorized = false,
@@ -194,19 +192,21 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     /** Wraps the AppAuth token request callback in a suspend function */
     private suspend fun performTokenRequest(tokenRequest: TokenRequest): TokenResponse =
         suspendCoroutine { continuation ->
-            Log.d(TAG,"Performing token request coroutine...")
-            authService.performTokenRequest(tokenRequest /*, clientAuth */) { response, ex ->
+            Log.d(TAG, "Performing token request coroutine...")
+            authService.performTokenRequest(tokenRequest) { response, ex ->
                 when {
                     response != null -> {
-                        Log.d(TAG,"Token request coroutine success.")
+                        Log.d(TAG, "Token request coroutine success.")
                         continuation.resume(response)
                     }
+
                     ex != null -> {
-                        Log.e(TAG,"Token request coroutine failed.", ex)
+                        Log.e(TAG, "Token request coroutine failed.", ex)
                         continuation.resumeWithException(ex)
                     }
+
                     else -> {
-                        Log.e(TAG,"Token request coroutine failed: No response or exception.")
+                        Log.e(TAG, "Token request coroutine failed: No response or exception.")
                         continuation.resumeWithException(IllegalStateException("No response or exception received"))
                     }
                 }
@@ -217,41 +217,45 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     fun performActionWithFreshTokens(action: (accessToken: String?, idToken: String?, ex: AuthorizationException?) -> Unit) {
         Log.d(TAG, "Performing action with fresh tokens...")
         val currentAuthState = authState
-        currentAuthState.performActionWithFreshTokens(authService /*, clientAuth (if needed for refresh) */) { accessToken, idToken, ex ->
-            viewModelScope.launch { // Ensure UI updates happen on main thread
+        currentAuthState.performActionWithFreshTokens(authService) { accessToken, idToken, ex ->
+            viewModelScope.launch {
                 if (ex != null) {
                     Log.e(TAG, "Token refresh failed during performAction", ex)
-                    clearAuthState() // Clear invalid persisted state
-                    authState = AuthState() // Clear in-memory state
-                    _userAuthState.value = UserAuthState(isLoading = false, error = "Session expired: ${ex.message}. Please log in again.")
+                    clearAuthState()
+                    authState = AuthState()
+                    _userAuthState.value = UserAuthState(
+                        isLoading = false,
+                        error = "Session expired: ${ex.message}. Please log in again."
+                    )
                     action(null, null, ex)
                 } else {
                     Log.d(TAG, "performActionWithFreshTokens: Tokens are fresh.")
-                    val needsPersist = authState.accessToken != accessToken || authState.idToken != idToken
+                    val needsPersist =
+                        authState.accessToken != accessToken || authState.idToken != idToken
                     if (needsPersist) {
-                        Log.d(TAG, "performActionWithFreshTokens: Tokens were refreshed. Persisting.")
-                        storeAuthState(authState) // Persist the updated AuthState
+                        Log.d(
+                            TAG,
+                            "performActionWithFreshTokens: Tokens were refreshed. Persisting."
+                        )
+                        storeAuthState(authState)
                     }
-                    if (_userAuthState.value.isLoading){
+                    if (_userAuthState.value.isLoading) {
                         _userAuthState.value = _userAuthState.value.copy(isLoading = false)
                     }
-                    action(accessToken, idToken, null) // Execute the action with fresh tokens
+                    action(accessToken, idToken, null)
                 }
             }
         }
     }
 
-
     /** Initiates the logout process by clearing local state */
     fun logout() {
         Log.d(TAG, "logout called.")
-        // Clear local AppAuth state immediately
         authState = AuthState()
         clearAuthState()
-        _userAuthState.value = UserAuthState(isLoading = false) // Reset UI state
+        _userAuthState.value = UserAuthState(isLoading = false)
         Log.d(TAG, "Local AppAuth state cleared for logout.")
         Log.d(TAG, "Skipping browser end session attempt as Google's endpoint is non-standard.")
-        // The onLogout lambda in AppNavigation handles Firebase sign-out.
     }
 
     // --- Persistence Functions (Unchanged) ---
@@ -307,10 +311,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         return try {
             val parts = idToken.split(".")
             if (parts.size < 2) return null
-            val payload = String(android.util.Base64.decode(parts[1], android.util.Base64.URL_SAFE), Charsets.UTF_8)
-            val email = payload.substringAfter("\"email\":\"","").substringBefore("\"","")
-            val name = payload.substringAfter("\"name\":\"","").substringBefore("\"","")
-            val picture = payload.substringAfter("\"picture\":\"","").substringBefore("\"","")
+            val payload = String(
+                android.util.Base64.decode(parts[1], android.util.Base64.URL_SAFE),
+                Charsets.UTF_8
+            )
+            val email = payload.substringAfter("\"email\":\"", "").substringBefore("\"", "")
+            val name = payload.substringAfter("\"name\":\"", "").substringBefore("\"", "")
+            val picture = payload.substringAfter("\"picture\":\"", "").substringBefore("\"", "")
             Log.d(TAG, "Parsed ID Token (basic): email=$email, name=$name")
             GoogleUserInfo(
                 email = if (email.isNotEmpty()) email else null,
@@ -322,7 +329,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             null
         }
     }
-
 
     // Dispose service on ViewModel clear
     override fun onCleared() {

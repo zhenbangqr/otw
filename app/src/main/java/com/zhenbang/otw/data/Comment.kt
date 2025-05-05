@@ -5,16 +5,15 @@ import com.google.firebase.firestore.ServerTimestamp
 import java.util.Date
 
 data class Comment(
-    @DocumentId // Firestore document ID will be mapped here
+    @DocumentId
     val id: String = "",
 
     val text: String = "",
-    val authorUid: String = "", // Firebase Auth UID
-    val authorEmail: String? = null, // Denormalized email
+    val authorUid: String = "",
+    val authorEmail: String? = null,
 
-    @ServerTimestamp // Automatically set by Firestore on creation
+    @ServerTimestamp
     val timestamp: Date? = null
 ) {
-    // Add no-argument constructor for Firestore deserialization
     constructor() : this("", "", "", null, null)
 }

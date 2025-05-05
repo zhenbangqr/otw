@@ -4,10 +4,8 @@ import com.google.firebase.auth.FirebaseUser
 import android.net.Uri
 import kotlinx.coroutines.flow.Flow
 
-// Interface defining all authentication operations needed by ViewModels
 interface AuthRepository {
 
-    // --- Existing Auth Methods ---
     suspend fun createUserAndSendVerificationLink(email: String, password: String): Result<Unit>
     suspend fun signInWithEmailAndPassword(email: String, password: String): Result<Unit>
     suspend fun checkCurrentUserVerificationStatus(): Result<Boolean>

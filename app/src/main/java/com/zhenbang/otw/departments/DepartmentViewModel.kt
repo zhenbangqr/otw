@@ -83,4 +83,3 @@ class DepartmentViewModel(private val repository: DepartmentRepository) : ViewMo
         }
     }
 }
-

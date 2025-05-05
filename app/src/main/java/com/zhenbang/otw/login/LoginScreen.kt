@@ -1,4 +1,4 @@
-package com.zhenbang.otw.login // Adjust package if needed
+package com.zhenbang.otw.login
 
 import android.app.Activity
 import android.content.Intent
@@ -6,16 +6,41 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState // Import rememberScrollState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll // Import verticalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -27,11 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zhenbang.otw.auth.AuthViewModel
-// Use correct import if LoginViewModel is in auth package
-import com.zhenbang.otw.login.LoginViewModel
-import com.zhenbang.otw.login.LoginUiState
 import kotlinx.coroutines.flow.collectLatest
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,7 +82,7 @@ fun LoginScreen(
         }
     }
 
-    // --- ActivityResult Launcher for AppAuth Authorization ---
+    // ActivityResult Launcher for AppAuth Authorization
     val authLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -69,7 +90,8 @@ fun LoginScreen(
             authViewModel.handleAuthorizationResponse(intent)
         } ?: run {
             if (result.resultCode != Activity.RESULT_OK) {
-                Toast.makeText(context, "Google Sign-In cancelled or failed.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Google Sign-In cancelled or failed.", Toast.LENGTH_SHORT)
+                    .show()
                 loginViewModel.resetState()
             }
             authViewModel.handleAuthorizationResponse(Intent())
@@ -81,7 +103,8 @@ fun LoginScreen(
     LaunchedEffect(googleAuthState) {
         if (googleAuthState.isAuthorized && googleAuthState.idToken != null) {
             println("Google Sign-In successful via AppAuth! Triggering Firebase link...")
-            Toast.makeText(context, "Google Sign-In Success! Finalizing...", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Google Sign-In Success! Finalizing...", Toast.LENGTH_SHORT)
+                .show()
             loginViewModel.handleGoogleSignInSuccess(googleAuthState.idToken!!)
         }
         googleAuthState.error?.let {
@@ -98,20 +121,21 @@ fun LoginScreen(
                 onLoginSuccess()
                 loginViewModel.resetState()
             }
+
             is LoginUiState.VerificationNeeded -> {
                 Toast.makeText(context, "Please verify your email.", Toast.LENGTH_SHORT).show()
                 onNavigateToVerify(state.email)
                 loginViewModel.resetState()
             }
+
             is LoginUiState.Error -> {
                 println("LoginScreen observed LoginViewModel Error: ${state.message}")
             }
+
             else -> {}
         }
     }
 
-
-    // --- UI Definition ---
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("On The Way Login") })
@@ -133,14 +157,12 @@ fun LoginScreen(
             Text("Login or Register", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(24.dp))
 
-            // --- Error Display Area ---
             val displayError = if (loginState is LoginUiState.Error) {
                 (loginState as LoginUiState.Error).message
             } else {
                 null
             }
 
-            // Use AnimatedVisibility or similar for smoother error appearance/disappearance
             if (displayError != null) {
                 Text(
                     text = displayError,
@@ -151,7 +173,6 @@ fun LoginScreen(
                 )
             }
 
-            // Email Field
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it; loginViewModel.clearErrorState() },
@@ -163,7 +184,6 @@ fun LoginScreen(
                 isError = loginState is LoginUiState.Error
             )
 
-            // Password Field
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it; loginViewModel.clearErrorState() },
@@ -173,9 +193,13 @@ fun LoginScreen(
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 trailingIcon = {
-                    val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                    val image =
+                        if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
                     val description = if (passwordVisible) "Hide password" else "Show password"
-                    IconButton(onClick = { passwordVisible = !passwordVisible }, enabled = !isLoading) {
+                    IconButton(
+                        onClick = { passwordVisible = !passwordVisible },
+                        enabled = !isLoading
+                    ) {
                         Icon(imageVector = image, description)
                     }
                 },
@@ -183,20 +207,18 @@ fun LoginScreen(
                 isError = loginState is LoginUiState.Error
             )
 
-            // --- Add Forgot Password Button ---
             TextButton(
                 onClick = {
-                    val emailToReset = email // Get email from the state variable
-                    Log.d("LoginScreen", "Attempting password reset for email: '[$emailToReset]'") // Log with brackets to see spaces
+                    val emailToReset = email
+                    Log.d("LoginScreen", "Attempting password reset for email: '[$emailToReset]'")
                     loginViewModel.sendPasswordReset(emailToReset)
                 },
-                modifier = Modifier.align(Alignment.End), // Align to the right
-                enabled = !isLoading // Disable while any loading is happening
+                modifier = Modifier.align(Alignment.End),
+                enabled = !isLoading
             ) {
                 Text("Forgot password?")
             }
 
-            // Login with Email Button
             Button(
                 onClick = {
                     loginViewModel.signInUser(email, password)
@@ -205,13 +227,16 @@ fun LoginScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (loginState is LoginUiState.Loading) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
                 } else {
                     Text("Login with Email")
                 }
             }
 
-            // Register Account Text Button
             TextButton(
                 onClick = onNavigateToRegister,
                 enabled = !isLoading,
@@ -220,11 +245,10 @@ fun LoginScreen(
                 Text("Register Account")
             }
 
-            Spacer(modifier = Modifier.height(16.dp)) // Adjusted spacing
+            Spacer(modifier = Modifier.height(16.dp))
             Text("OR", style = MaterialTheme.typography.bodyMedium)
-            Spacer(modifier = Modifier.height(16.dp)) // Adjusted spacing
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Google Login Button
             Button(
                 onClick = {
                     authViewModel.startAuthorization()
@@ -233,7 +257,11 @@ fun LoginScreen(
                     try {
                         authLauncher.launch(authIntent)
                     } catch (e: Exception) {
-                        Toast.makeText(context, "Could not launch Google Sign-In.", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            context,
+                            "Could not launch Google Sign-In.",
+                            Toast.LENGTH_SHORT
+                        ).show()
                         authViewModel.logout()
                         loginViewModel.resetState()
                         println("Error launching auth intent: ${e.message}")
@@ -243,11 +271,15 @@ fun LoginScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
                 } else {
                     Text("Log In with Google")
                 }
             }
-        } // End Column
-    } // End Scaffold
+        }
+    }
 }
