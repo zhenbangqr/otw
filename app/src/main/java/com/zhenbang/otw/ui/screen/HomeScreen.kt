@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.SortByAlpha
@@ -143,11 +144,14 @@ fun HomeScreen(
                             )
                         }
                     }
-                    IconButton(onClick = onNavigateToNotifications) {
-                        Icon(Icons.Filled.Notifications, contentDescription = "Notifications")
+                    if (selectedContent == "Dashboard") {
+                        IconButton(onClick = {
+                            weatherViewModel.fetchWeather("Kuala Lumpur") // Refresh default location
+                            newsViewModel.fetchNews() }) {
+                            Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
+                        }
                     }
                 }
-                // Optional: Add colors = TopAppBarDefaults.topAppBarColors(...)
             )
         },
         bottomBar = {
@@ -214,12 +218,13 @@ fun HomeScreen(
                             text = "Hi, ${userProfile?.displayName ?: "User"}",
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(top = 10.dp, bottom = 24.dp, start = 10.dp)
+                            modifier = Modifier
+                                .padding(top = 10.dp, bottom = 24.dp, start = 10.dp)
                                 .align(Alignment.Start) // Align text to the start
                         )
-                        //WeatherSection(weatherViewModel = weatherViewModel)
+                        WeatherSection(weatherViewModel = weatherViewModel)
                         Spacer(modifier = Modifier.height(24.dp))
-                        //NewsSection(newsViewModel = newsViewModel)
+                        NewsSection(newsViewModel = newsViewModel)
                         Spacer(modifier = Modifier.height(16.dp))
                     }
                 }
