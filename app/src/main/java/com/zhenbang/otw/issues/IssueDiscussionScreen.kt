@@ -4,18 +4,25 @@ package com.zhenbang.otw.issues
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi // For combinedClickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable // For long press
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items // Import correct items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send // Import Send icon
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,6 +30,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -37,6 +45,7 @@ import com.zhenbang.otw.data.FirebaseAuthRepository
 import com.zhenbang.otw.data.Comment // Import Comment
 import com.zhenbang.otw.data.UserProfile
 import com.zhenbang.otw.database.Issue
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -65,18 +74,23 @@ fun IssueDiscussionScreen(
 
     val issueViewModel: IssueViewModel = viewModel(factory = IssueViewModel.Factory(context)) // For issue operations
 
-    // State for edit comment dialog
     var showEditCommentDialog by rememberSaveable { mutableStateOf(false) }
     var commentToEdit by remember { mutableStateOf<Comment?>(null) }
-    // State for delete confirmation
     var showDeleteCommentDialog by rememberSaveable { mutableStateOf(false) }
     var commentToDelete by remember { mutableStateOf<Comment?>(null) }
-
     var showIssueOptionsMenu by rememberSaveable { mutableStateOf(false) }
     var showDeleteIssueDialog by rememberSaveable { mutableStateOf(false) }
 
-    // State for the issue creator's profile
     val creatorProfile = uiState.creatorProfile
+
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    val showScrollToTopButton by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 0
+        }
+    }
+    // --- End Scroll-to-Top State ---
     // Show general errors
     LaunchedEffect(uiState.error) {
         uiState.error?.let {
@@ -154,8 +168,8 @@ fun IssueDiscussionScreen(
                         value = uiState.newCommentText,
                         onValueChange = { viewModel.updateNewCommentText(it) },
                         placeholder = { Text("Add a comment...") },
-                        modifier = Modifier.weight(1f),
-                        // Add styling as needed (e.g., maxLines)
+                        modifier = Modifier.weight(1f).heightIn(max = 150.dp),
+                        maxLines = 10
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     IconButton(
@@ -166,12 +180,41 @@ fun IssueDiscussionScreen(
                     }
                 }
             }
-        }
+        },
+        floatingActionButton = {
+            AnimatedVisibility(
+                visible = showScrollToTopButton,
+                enter = slideInVertically { it } + fadeIn(),
+                exit = slideOutVertically { it } + fadeOut()
+            ) {
+                SmallFloatingActionButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            listState.animateScrollToItem(index = 0)
+                        }
+                    },
+                    modifier = Modifier.padding(16.dp),
+                    containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f),
+                    contentColor = Color.White,
+                    shape = RoundedCornerShape(50.dp),
+                    elevation = FloatingActionButtonDefaults.elevation(
+                        defaultElevation = 0.dp,
+                        pressedElevation = 0.dp,
+                        hoveredElevation = 0.dp,
+                        focusedElevation = 0.dp
+                    )
+                ) {
+                    Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Scroll to Top")
+                }
+            }
+        },
+        floatingActionButtonPosition = FabPosition.End
     ) { paddingValues ->
         LazyColumn(
+            state = listState, // Pass the listState here
             modifier = Modifier.fillMaxSize().padding(paddingValues).padding(horizontal = 16.dp),
-            // Reverse layout might be useful for chat, but needs correct ordering from query
-            // reverseLayout = true
+            // Remove extra bottom padding here, let FAB handle its own padding
+            contentPadding = PaddingValues(top = 8.dp, bottom = 8.dp)
         ) {
             // --- Header Item: Issue Details ---
             item {
