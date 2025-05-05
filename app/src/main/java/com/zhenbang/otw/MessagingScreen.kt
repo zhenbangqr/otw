@@ -41,6 +41,7 @@ import androidx.compose.ui.platform.LocalConfiguration // Added for screen width
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle // For italic text
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -54,6 +55,8 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage // Import Coil
 import coil.request.ImageRequest
 import com.google.firebase.auth.FirebaseAuth
+import com.zhenbang.otw.data.AuthRepository
+import com.zhenbang.otw.data.FirebaseAuthRepository
 import com.zhenbang.otw.data.model.ZpResponse
 import com.zhenbang.otw.messagemodel.ChatMessage // Import data class with new fields
 import com.zhenbang.otw.messagemodel.MessageType
@@ -79,6 +82,7 @@ fun MessagingScreen(
     val currentUserUid = FirebaseAuth.getInstance().currentUser?.uid
     val context = LocalContext.current
     val application = context.applicationContext as Application
+    val authRepository: AuthRepository = remember { FirebaseAuthRepository() }
 
     // Early exit if user is null
     if (currentUserUid == null) {
@@ -90,7 +94,13 @@ fun MessagingScreen(
 
     // --- ViewModel Setup ---
     val viewModel: MessagingViewModel = viewModel(
-        factory = MessagingViewModel.provideFactory(application, currentUserUid, userIdToChatWith)
+        key = "$currentUserUid-$userIdToChatWith", // Key ensures correct VM instance per chat
+        factory = MessagingViewModel.provideFactory(
+            application = application,
+            currentUserUid = currentUserUid,
+            otherUserUid = userIdToChatWith,
+            authRepository = authRepository // Pass the repository instance
+        )
     )
 
     // --- State from ViewModel ---
@@ -103,6 +113,7 @@ fun MessagingScreen(
     val isFetchingLocation by viewModel.isFetchingLocation.collectAsStateWithLifecycle()
     val selectedMessageForReply by viewModel.selectedMessageForReply.collectAsStateWithLifecycle()
     val editingMessage by viewModel.editingMessage.collectAsStateWithLifecycle()
+    val isChatBlocked by viewModel.isChatBlocked.collectAsStateWithLifecycle()
 
     // --- UI State ---
     val listState = rememberLazyListState()
@@ -437,6 +448,16 @@ fun MessagingScreen(
                 }
             } // --- End Message List ---
 
+            if (isChatBlocked) {
+                Text(
+                    text = "You cannot send messages to this user.", // Or more specific based on who blocked whom if needed
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                )
+            }
+
             // --- Input Area ---
             Column { // Allows stacking previews above input
 
@@ -449,6 +470,9 @@ fun MessagingScreen(
                 editingMessage?.let { editMsg ->
                     EditPreview(message = editMsg, onCancel = { viewModel.cancelEdit() })
                 }
+
+                val isInputEnabled = !isChatBlocked // Input disabled if chat is blocked
+
 
                 // --- Calculate Send/Save Button Enabled State ---
                 // This logic determines if the primary action button (Send/Save) should be enabled
@@ -475,7 +499,8 @@ fun MessagingScreen(
                             viewModel.sendImageMessage(previewImageUri!!, context.contentResolver)
                             previewImageUri = null
                         },
-                        onCancelClick = { previewImageUri = null }
+                        onCancelClick = { previewImageUri = null },
+                        isEnabled = isInputEnabled // Disable send if blocked
                     )
                 } else {
                     MessageInput( // Pass calculated enabled state
@@ -513,9 +538,9 @@ fun MessagingScreen(
                         },
                         isFetchingLocation = isFetchingLocation,
                         // Disable certain actions when editing
-                        canAttach = editingMessage == null,
-                        canRecord = editingMessage == null,
-                        canSendLocation = editingMessage == null
+                        canAttach = editingMessage == null && isInputEnabled,
+                        canRecord = editingMessage == null && isInputEnabled,
+                        canSendLocation = editingMessage == null && isInputEnabled
                     )
                 }
             } // End Column for Input Area
@@ -881,14 +906,10 @@ fun MessageInput(
             } else {
                 // Action Buttons (Left Side)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onAttachImageClick, enabled = canAttach) {
-                        Icon(Icons.Filled.AddPhotoAlternate, "Attach Image",
-                            tint = if (canAttach) defaultContentColor else disabledContentColor)
-                    }
+                    IconButton(onClick = onAttachImageClick, enabled = canAttach) { Icon(Icons.Filled.AddPhotoAlternate, "Attach Image", tint = if (canAttach) defaultContentColor else disabledContentColor) }
                     IconButton(onClick = onSendLocationClick, enabled = canSendLocation && !isFetchingLocation) {
                         if (isFetchingLocation) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
-                        else Icon(Icons.Filled.LocationOn, "Send Location",
-                            tint = if (canSendLocation) defaultContentColor else disabledContentColor)
+                        else Icon(Icons.Filled.LocationOn, "Send Location", tint = if (canSendLocation) defaultContentColor else disabledContentColor)
                     }
                 }
 
@@ -906,7 +927,8 @@ fun MessageInput(
                         // Consider customizing container color if needed
                         // containerColor = MaterialTheme.colorScheme.surfaceVariant
                     ),
-                    maxLines = 5 // Allow multiple lines
+                    maxLines = 5, // Allow multiple lines
+                    enabled = canAttach || canRecord || canSendLocation || isEditing // Enable text field if any action is possible or editing
                 )
 
                 // Send / Save Edit / Record Button (Right Side)
@@ -938,7 +960,7 @@ fun MessageInput(
 
 
 @Composable
-fun ImagePreviewArea(uri: Uri, onSendClick: () -> Unit, onCancelClick: () -> Unit) {
+fun ImagePreviewArea(uri: Uri, onSendClick: () -> Unit, onCancelClick: () -> Unit, isEnabled: Boolean = true) {
     Surface(shadowElevation = 4.dp, tonalElevation = 1.dp) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(8.dp),
