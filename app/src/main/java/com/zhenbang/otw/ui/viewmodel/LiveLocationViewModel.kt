@@ -206,7 +206,7 @@ class LiveLocationViewModel(application: Application) : AndroidViewModel(applica
                     for (doc in snapshots) {
                         try {
                             // Assuming 'name' is the field storing the display name
-                            val name = doc.getString("name")
+                            val name = doc.getString("displayName")
                             if (name != null) {
                                 namesMap[doc.id] = name // Use document ID (uid) as key
                             } else {
