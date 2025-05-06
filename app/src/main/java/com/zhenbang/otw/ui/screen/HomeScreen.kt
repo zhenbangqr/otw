@@ -3,7 +3,6 @@ package com.zhenbang.otw.ui.screen // Adjust package as needed
 // --- Imports ---
 // --- Import your specific classes ---
 import android.util.Log
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -35,7 +34,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -43,25 +41,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.zhenbang.otw.departments.DepartmentViewModel
-import com.zhenbang.otw.departments.WorkspaceContent
+import com.zhenbang.otw.ui.viewmodel.DepartmentViewModel
 import com.zhenbang.otw.ui.component.NewsSection
 import com.zhenbang.otw.ui.component.WeatherSection
-import com.zhenbang.otw.ui.theme.OnTheWayTheme
 import com.zhenbang.otw.ui.viewmodel.NewsViewModel
 import com.zhenbang.otw.ui.viewmodel.WeatherViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.zhenbang.otw.R
-import com.zhenbang.otw.profile.ProfileViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
+import com.zhenbang.otw.ui.viewmodel.ProfileViewModel
 import androidx.navigation.NavController
-import com.zhenbang.otw.ChatHistoryContent
-import com.zhenbang.otw.LiveLocationScreen
 import com.zhenbang.otw.Routes
 // Import your ChatHistoryViewModel and ChatHistoryItem
 import com.zhenbang.otw.ui.viewmodel.ChatHistoryViewModel
@@ -71,8 +63,6 @@ import java.text.SimpleDateFormat // For formatting date/time
 import java.util.Date
 import java.util.Locale
 import androidx.compose.foundation.clickable // Import clickable
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email

@@ -4,7 +4,7 @@ import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.zhenbang.otw.data.local.AppDatabase
-import com.zhenbang.otw.repository.HistoryRepository
+import com.zhenbang.otw.data.repository.HistoryRepository
 // Import any other dependencies ZpViewModel needs (e.g., API repository)
 
 class ZpViewModelFactory(private val application: Application) : ViewModelProvider.Factory {

@@ -13,7 +13,7 @@ import com.zhenbang.otw.data.model.ZpResponse
 import com.zhenbang.otw.data.model.ZpRequest
 import com.zhenbang.otw.data.remote.ZpInstance
 import com.zhenbang.otw.util.UiState
-import com.zhenbang.otw.repository.HistoryRepository // Import Repository
+import com.zhenbang.otw.data.repository.HistoryRepository // Import Repository
 import com.zhenbang.otw.data.local.SummaryHistoryEntity // Import Entity
 
 // --- The ViewModel Class Definition ---

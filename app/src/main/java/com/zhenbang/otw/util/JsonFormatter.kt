@@ -1,9 +1,7 @@
 package com.zhenbang.otw.util // Example utility package
 
-import com.zhenbang.otw.messagemodel.ChatMessage
-import com.zhenbang.otw.messagemodel.SerializableChatMessage
-import com.zhenbang.otw.messagemodel.toSerializableChatMessage
-import kotlinx.serialization.encodeToString
+import com.zhenbang.otw.data.model.ChatMessage
+import com.zhenbang.otw.data.model.toSerializableChatMessage
 import kotlinx.serialization.json.Json
 
 object JsonFormatter {

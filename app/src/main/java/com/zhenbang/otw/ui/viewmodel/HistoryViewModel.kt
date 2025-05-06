@@ -3,7 +3,7 @@ package com.zhenbang.otw.ui.viewmodel // Or your ViewModel package
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.zhenbang.otw.repository.HistoryRepository
+import com.zhenbang.otw.data.repository.HistoryRepository
 import com.zhenbang.otw.data.local.SummaryHistoryEntity
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow

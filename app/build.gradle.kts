@@ -5,8 +5,6 @@ plugins {
     id("com.google.gms.google-services")
     id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.devtools.ksp") version "2.0.21-1.0.27"
-    id("org.jetbrains.kotlin.plugin.serialization") // Apply plugin
-    id("com.google.devtools.ksp")
 }
 
 android {
@@ -42,6 +40,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     packaging {
         resources {
