@@ -645,7 +645,7 @@ class MessagingViewModel(
 
             } catch (e: Exception) {
                 Log.e("MessagingViewModel", "Error editing message ${messageToEdit.messageId}", e)
-                _error.value = "Failed to edit message: ${e.localizedMessage}"
+                //_error.value = "Failed to edit message: ${e.localizedMessage}"
                 // Optionally cancel edit mode on failure too, depending on desired UX
                 // cancelEdit()
             }
