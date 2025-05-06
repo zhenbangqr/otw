@@ -12,6 +12,7 @@ import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.ktx.firestore
@@ -91,12 +92,14 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
 
         val builder = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(R.drawable.ic_stat_message) // !! IMPORTANT: Create this small icon (white/transparent)
-            .setContentTitle(title)
-            .setContentText(message)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setSmallIcon(R.drawable.ic_stat_message) // Your notification icon
+            .setColor(ContextCompat.getColor(this, android.R.color.black)) // Explicitly set color to black
+            .setContentTitle(title) // Sender name or general title
+            .setContentText(message) // Message preview or body
+            .setPriority(NotificationCompat.PRIORITY_HIGH) // Importance
             .setAutoCancel(true) // Dismiss notification when tapped
-            .setContentIntent(pendingIntent) // Set the intent
+            .setContentIntent(pendingIntent) // Action when tapped
+            .setDefaults(NotificationCompat.DEFAULT_ALL) // Use default sound, vibration, etc. (optional)
 
         // Check for notification permission (Android 13+)
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {

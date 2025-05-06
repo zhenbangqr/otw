@@ -105,7 +105,7 @@ class MessagingViewModel(
     private var currentAudioFilePath: String? = null
 
     // **IMPORTANT:** Replace with secure API key retrieval
-    private val MAPS_API_KEY = "YOUR_STATIC_MAPS_API_KEY" // <-- REPLACE THIS
+    private val MAPS_API_KEY = "AIzaSyD-fI3TmBfp03_OqaFGzP8YhI_HR9XAyjk" // <-- REPLACE THIS
 
     // --- State for Preview Update Logic ---
     private var lastUpdatedPreviewMessageId: String? = null // <-- ADDED: Tracks the last message used for preview

@@ -41,7 +41,7 @@ fun WeatherSection(
     // Use Card similar to NewsSection, apply width constraint here
     Card(
         modifier = modifier
-            .fillMaxWidth(0.6f), // Occupy 60% of parent width
+            .fillMaxWidth(), // Occupy 100% of available parent width
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Column { // Use Column to stack Title and Content Box
