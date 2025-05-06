@@ -46,6 +46,8 @@ import java.net.URLEncoder // Import URL Encoder
 import java.util.*
 import java.util.concurrent.TimeUnit // For location request timeout
 
+
+
 class MessagingViewModel(
     application: Application,
     private val currentUserUid: String,
