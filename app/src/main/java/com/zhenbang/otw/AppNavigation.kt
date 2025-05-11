@@ -4,9 +4,7 @@ package com.zhenbang.otw
 import android.net.Uri
 import android.util.Log
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -23,40 +21,38 @@ import androidx.navigation.navArgument
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.zhenbang.otw.auth.*
-import com.zhenbang.otw.data.AuthRepository
-import com.zhenbang.otw.data.FirebaseAuthRepository
-import com.zhenbang.otw.enterSelfDetails.EnterSelfDetailsScreen
-import com.zhenbang.otw.enterSelfDetails.EnterSelfDetailsViewModel
-import com.zhenbang.otw.emailVerification.VerificationScreen
-import com.zhenbang.otw.emailVerification.VerificationViewModel
-import com.zhenbang.otw.login.LoginScreen
-import com.zhenbang.otw.login.LoginViewModel
-import com.zhenbang.otw.profile.ProfileStatus
-import com.zhenbang.otw.profile.ProfileViewModel
-import com.zhenbang.otw.profile.ProfileScreen
-import com.zhenbang.otw.register.RegisterScreen
-import com.zhenbang.otw.register.RegisterViewModel
-import com.zhenbang.otw.mainPage.MainPageScreen
-import com.zhenbang.otw.departments.DepartmentDetailsScreen
-import com.zhenbang.otw.departments.DepartmentViewModel
-import com.zhenbang.otw.departments.Screen
-import com.zhenbang.otw.tasks.AddEditTaskScreen
-import com.zhenbang.otw.tasks.TaskDetailScreen
-import com.zhenbang.otw.tasks.TaskViewModel
-import com.zhenbang.otw.issues.AddEditIssueScreen
-import com.zhenbang.otw.issues.IssueDiscussionScreen
-import com.zhenbang.otw.issues.IssueViewModel
-import com.zhenbang.otw.profile.language.LanguageScreen
-import com.zhenbang.otw.profile.chatTheme.ChatThemeScreen
-import com.zhenbang.otw.profile.manageAccount.ManageAccountScreen
-import com.zhenbang.otw.profile.privacy.PrivacyScreen
+import com.zhenbang.otw.ui.screen.EnterSelfDetailsScreen
+import com.zhenbang.otw.ui.viewmodel.EnterSelfDetailsViewModel
+import com.zhenbang.otw.ui.screen.VerificationScreen
+import com.zhenbang.otw.ui.viewmodel.VerificationViewModel
+import com.zhenbang.otw.ui.screen.LoginScreen
+import com.zhenbang.otw.ui.viewmodel.LoginViewModel
+import com.zhenbang.otw.ui.viewmodel.ProfileStatus
+import com.zhenbang.otw.ui.viewmodel.ProfileViewModel
+import com.zhenbang.otw.ui.screen.ProfileScreen
+import com.zhenbang.otw.ui.screen.RegisterScreen
+import com.zhenbang.otw.ui.viewmodel.RegisterViewModel
+import com.zhenbang.otw.ui.screen.DepartmentDetailsScreen
+import com.zhenbang.otw.ui.viewmodel.DepartmentViewModel
+import com.zhenbang.otw.ui.screen.Screen
+import com.zhenbang.otw.ui.screen.AddEditTaskScreen
+import com.zhenbang.otw.ui.screen.TaskDetailScreen
+import com.zhenbang.otw.ui.viewmodel.TaskViewModel
+import com.zhenbang.otw.ui.screen.AddEditIssueScreen
+import com.zhenbang.otw.ui.screen.IssueDiscussionScreen
+import com.zhenbang.otw.ui.viewmodel.IssueViewModel
+import com.zhenbang.otw.ui.screen.LanguageScreen
+import com.zhenbang.otw.ui.screen.ChatThemeScreen
+import com.zhenbang.otw.ui.screen.ManageAccountScreen
+import com.zhenbang.otw.ui.screen.PrivacyScreen
 import com.zhenbang.otw.ui.screen.HomeScreen
 import com.zhenbang.otw.ui.viewmodel.LiveLocationViewModel
 import com.zhenbang.otw.ui.viewmodel.NewsViewModel
 import com.zhenbang.otw.ui.viewmodel.WeatherViewModel
-import com.zhenbang.otw.UserListScreen
-import com.zhenbang.otw.MessagingScreen
-import com.zhenbang.otw.profile.help.HelpScreen
+import com.zhenbang.otw.ui.screen.MessagingScreen
+import com.zhenbang.otw.ui.screen.HelpScreen
+import com.zhenbang.otw.ui.screen.HistoryScreen
+import com.zhenbang.otw.ui.screen.UserListScreen
 import com.zhenbang.otw.ui.viewmodel.ChatHistoryViewModel
 
 
@@ -89,7 +85,7 @@ object AppDestinations {
     const val ISSUE_DISCUSSION_ROUTE = "issue_discussion/{$ISSUE_ID_ARG}"
 
     // --- NEW Chat Routes ---
-    const val CHAT_HISTORY_ROUTE = "chat_history"
+    const val CHAT_HISTORY_ROUTE = "history"
     const val USER_LIST_ROUTE = "user_list" // For starting new chats
     const val OTHER_USER_ID_ARG = "otherUserId" // Argument name for MessagingScreen
     const val MESSAGING_ROUTE = "messaging/{$OTHER_USER_ID_ARG}" // Route with argument
@@ -570,6 +566,11 @@ fun AppNavigation() {
         composable(route = AppDestinations.USER_LIST_ROUTE) { // Or Routes.USER_LIST
             // ViewModel is likely obtained inside the screen
             UserListScreen(navController = navController)
+        }
+
+        composable(route = AppDestinations.CHAT_HISTORY_ROUTE) {
+            // HistoryViewModel is created inside HistoryScreen using its factory
+            HistoryScreen(navController = navController)
         }
 
         composable(

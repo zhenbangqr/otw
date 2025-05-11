@@ -13,9 +13,13 @@ import com.zhenbang.otw.data.model.ZpResponse
 import com.zhenbang.otw.data.model.ZpRequest
 import com.zhenbang.otw.data.remote.ZpInstance
 import com.zhenbang.otw.util.UiState
+import com.zhenbang.otw.data.repository.HistoryRepository // Import Repository
+import com.zhenbang.otw.data.local.SummaryHistoryEntity // Import Entity
 
 // --- The ViewModel Class Definition ---
-class ZpViewModel : ViewModel() { // Your class must inherit from ViewModel
+class ZpViewModel(
+    private val historyRepository: HistoryRepository
+) : ViewModel() { // Your class must inherit from ViewModel
 
     // --- 1. State Holder ---
     // Use StateFlow to hold the state that the UI will observe.
@@ -37,7 +41,10 @@ class ZpViewModel : ViewModel() { // Your class must inherit from ViewModel
                 val request = ZpRequest(
                     model = "glm-4-plus", // Replace with your actual model code/constant
                     messages = listOf(
-                        RequestMessage(role = "user", content = "Summarize this chat in a very brief way, in sender's perspective, emphasize on important information for me , each task differentiate them in point form: $promptContent")
+                        RequestMessage(
+                            role = "user",
+                            content = "Summarize this chat in a very brief way, in sender's perspective, emphasize on important information for me , each task differentiate them in point form: $promptContent"
+                        )
                     )
                 )
 
@@ -63,6 +70,33 @@ class ZpViewModel : ViewModel() { // Your class must inherit from ViewModel
                 Log.e("ViewModelZPAPI", "Unexpected error: ${e.message}", e)
                 // Update state to Error with a generic message
                 _apiDataState.value = UiState.Error("An unexpected error occurred.")
+            }
+        }
+    }
+
+    // Function called by the UI when a successful response is observed
+    fun saveSummaryToHistory(
+        startMillis: Long?,
+        endMillis: Long?,
+        requestJson: String,
+        aiResponseText: String
+    ) {
+        if (startMillis == null || endMillis == null || requestJson.isBlank() || aiResponseText.isBlank()) {
+            Log.w("HistorySave", "Attempted to save incomplete summary data.")
+            return
+        }
+        viewModelScope.launch {
+            val summary = SummaryHistoryEntity(
+                startDateMillis = startMillis,
+                endDateMillis = endMillis,
+                requestJson = requestJson,
+                aiSummaryResponse = aiResponseText
+            )
+            try {
+                historyRepository.insertSummary(summary)
+                Log.i("HistorySave", "Successfully saved summary to database.")
+            } catch (e: Exception) {
+                Log.e("HistorySave", "Failed to save summary to database", e)
             }
         }
     }

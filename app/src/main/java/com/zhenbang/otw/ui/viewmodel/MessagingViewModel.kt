@@ -20,7 +20,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.location.* // Import LocationServices and related classes
-import com.google.firebase.Timestamp // Make sure Timestamp is imported
 import com.google.firebase.firestore.FieldValue // For serverTimestamp() used in updateChatMetadata
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException // Explicit import for error checking
@@ -29,12 +28,12 @@ import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions // For merge()
 import com.google.firebase.firestore.ktx.toObject
 import com.google.firebase.storage.FirebaseStorage
-import com.zhenbang.otw.data.AuthRepository
-import com.zhenbang.otw.data.FirebaseAuthRepository
-import com.zhenbang.otw.data.UserProfile
+import com.zhenbang.otw.data.repository.AuthRepository
+import com.zhenbang.otw.data.repository.FirebaseAuthRepository
+import com.zhenbang.otw.data.model.UserProfile
 // import com.zhenbang.otw.BuildConfig // <-- Import BuildConfig if API key is stored there
-import com.zhenbang.otw.messagemodel.ChatMessage // Ensure this has the necessary fields
-import com.zhenbang.otw.messagemodel.MessageType
+import com.zhenbang.otw.data.model.ChatMessage // Ensure this has the necessary fields
+import com.zhenbang.otw.data.model.MessageType
 import kotlinx.coroutines.Dispatchers // Import Dispatchers for background work
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -45,6 +44,8 @@ import java.io.IOException
 import java.net.URLEncoder // Import URL Encoder
 import java.util.*
 import java.util.concurrent.TimeUnit // For location request timeout
+
+
 
 class MessagingViewModel(
     application: Application,
